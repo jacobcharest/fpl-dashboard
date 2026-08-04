@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { getPlayerTable, getSeasonTeams, getSeasons, getTeamTable } from "./api";
+import { getPlayerTable, getSeasonTeams, getSeasons, getTeamTable, refreshSeason } from "./api";
 import { ChartsPanel } from "./components/ChartsPanel";
 import { FilterSidebar } from "./components/FilterSidebar";
 import { PlayerTable } from "./components/PlayerTable";
@@ -8,6 +8,10 @@ import type { NumericFilter, PlayerRow, Season, SortSpec, TeamFilterState, TeamR
 import "./App.css";
 
 const MAX_GW = 38;
+
+function errorMessage(err: any): string {
+  return err?.response?.data?.detail ?? err?.message ?? "Unknown error";
+}
 
 function App() {
   const [seasons, setSeasons] = useState<Season[]>([]);
@@ -23,6 +27,10 @@ function App() {
   const [per90, setPer90] = useState(false);
   const [startsOnly, setStartsOnly] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshMessage, setRefreshMessage] = useState<string | null>(null);
+  const [refreshNonce, setRefreshNonce] = useState(0);
 
   useEffect(() => {
     getSeasons().then((data) => {
@@ -62,6 +70,7 @@ function App() {
     if (!seasonId || teamFilters.length === 0) return;
 
     setLoading(true);
+    setFetchError(null);
     if (viewMode === "players") {
       getPlayerTable({
         season_id: seasonId,
@@ -73,6 +82,7 @@ function App() {
         starts_only: startsOnly,
       })
         .then(setPlayerRows)
+        .catch((err) => setFetchError(errorMessage(err)))
         .finally(() => setLoading(false));
     } else {
       getTeamTable({
@@ -83,9 +93,34 @@ function App() {
         sort: teamSort,
       })
         .then(setTeamRows)
+        .catch((err) => setFetchError(errorMessage(err)))
         .finally(() => setLoading(false));
     }
-  }, [seasonId, teamFilters, viewMode, playerSort, teamSort, playerFilters, teamNumericFilters, per90, startsOnly]);
+  }, [
+    seasonId,
+    teamFilters,
+    viewMode,
+    playerSort,
+    teamSort,
+    playerFilters,
+    teamNumericFilters,
+    per90,
+    startsOnly,
+    refreshNonce,
+  ]);
+
+  const handleRefresh = () => {
+    if (!seasonId || refreshing) return;
+    setRefreshing(true);
+    setRefreshMessage(null);
+    refreshSeason(seasonId)
+      .then((summary) => {
+        setRefreshMessage(`Updated: ${summary.gw_rows_inserted} gameweek rows, ${summary.players} players.`);
+        setRefreshNonce((n) => n + 1);
+      })
+      .catch((err) => setRefreshMessage(`Refresh failed: ${errorMessage(err)}`))
+      .finally(() => setRefreshing(false));
+  };
 
   return (
     <div className="app">
@@ -108,8 +143,18 @@ function App() {
             <option value="teams">Teams</option>
           </select>
         </label>
+        <button className="refresh-btn" onClick={handleRefresh} disabled={refreshing || !seasonId}>
+          {refreshing ? "Fetching…" : "Fetch New Data"}
+        </button>
+        {refreshMessage && <span className="refresh-message">{refreshMessage}</span>}
         {loading && <span className="loading">Loading…</span>}
       </header>
+
+      {fetchError && (
+        <div className="fetch-error">
+          Couldn't load data: {fetchError}. Is the backend running (<code>./run.sh</code>)?
+        </div>
+      )}
 
       <div className="main-layout">
         <FilterSidebar

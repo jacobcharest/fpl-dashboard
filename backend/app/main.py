@@ -1,10 +1,11 @@
+from contextlib import asynccontextmanager
 from typing import Literal
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from app.db import get_connection
+from app.db import get_connection, init_db
 from app.queries import (
     NumericFilter,
     SortSpec,
@@ -14,8 +15,19 @@ from app.queries import (
     query_series,
     query_teams,
 )
+from app.refresh import backfill_season, seed_seasons
 
-app = FastAPI(title="FPL Dashboard API")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    init_db()
+    conn = get_connection()
+    seed_seasons(conn)
+    conn.close()
+    yield
+
+
+app = FastAPI(title="FPL Dashboard API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -122,3 +134,18 @@ def chart_series(req: ChartSeriesRequest):
     )
     conn.close()
     return result
+
+
+@app.post("/api/refresh/{season_id}")
+def refresh_season(season_id: str):
+    """Re-fetches this season from the source archive and re-ingests it (idempotent - safe to
+    run repeatedly). This is the "Fetch new data" button; see app/refresh.py for why this
+    doubles as the current season's live-data refresh."""
+    conn = get_connection()
+    try:
+        summary = backfill_season(conn, season_id)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"{season_id}: {e}")
+    finally:
+        conn.close()
+    return summary

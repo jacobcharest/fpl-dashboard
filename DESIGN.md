@@ -202,4 +202,22 @@ arbitrary jump. Steps make step 1 the neutral baseline.
   chart type changes. Also fixed a minor CSS issue found along the way: gameweek-range inputs
   were clipping "38" down to "3" (spin-button width, not a data bug — verified the underlying
   value was always correct via direct DOM inspection).
-- **Phase 5 (next)**: polish, push to GitHub.
+- **Phase 5 (done)**: closed a real gap from the original plan — the "fetch new data" weekly
+  refresh was designed early on but never actually built. Refactored the backfill logic out of
+  `scripts/backfill_history.py` into `app/refresh.py` so it's importable by the API, not just
+  the CLI (the script is now a thin wrapper around it), and added `POST /api/refresh/{season_id}`
+  plus a "Fetch New Data" button next to the season dropdown. Re-running the ingestion for the
+  current season **is** the refresh — no separate live-FPL-API integration needed, since the
+  vaastav archive tracks the live API closely (see `app/refresh.py` docstring) and the ingestion
+  path was already thoroughly validated in Phase 1. Verified in-browser: a live refresh
+  completes and shows a status message; a refresh against a nonexistent season returns a clean
+  502 with a useful error instead of a stack trace.
+  Also: added `run.sh` to start both dev servers with one command (verified it actually works —
+  hit a red herring where `curl 127.0.0.1:5173` failed but `curl localhost:5173` succeeded, a
+  curl IPv4/IPv6 quirk with Vite's default bind, not a script bug); added basic error handling
+  to the table fetches (previously a backend outage would leave a stuck loading spinner with no
+  feedback and stale data — now shows a clear banner, verified by actually killing the backend
+  mid-session, confirming the error banner appeared with the right message, then restarting it
+  and confirming the banner cleared and fresh data loaded, all checked via direct DOM inspection
+  since the browser tool's screenshots were unreliable this session); removed the leftover
+  generic Vite template `frontend/README.md` (superseded by the real one at the repo root).

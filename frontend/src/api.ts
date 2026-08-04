@@ -31,3 +31,17 @@ export async function getTeamTable(req: TableRequest): Promise<TeamRow[]> {
 export async function getChartSeries(req: ChartSeriesRequest): Promise<SeriesPoint[]> {
   return (await client.post("/api/chart/series", req)).data;
 }
+
+export interface RefreshSummary {
+  season_id: string;
+  teams: number;
+  players: number;
+  fixtures: number;
+  gw_rows_inserted: number;
+  gw_rows_total: number;
+  gw_rows_skipped: number;
+}
+
+export async function refreshSeason(seasonId: string): Promise<RefreshSummary> {
+  return (await client.post(`/api/refresh/${seasonId}`, null, { timeout: 120_000 })).data;
+}
