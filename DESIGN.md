@@ -167,5 +167,39 @@ arbitrary jump. Steps make step 1 the neutral baseline.
   between them — not a problem for actual discrete mouse clicks, but worth knowing if this
   code is ever driven programmatically (e.g. a future "preset" button that toggles many teams
   at once) - use the functional `setState` form there if that's added.
-- **Phase 4 (next)**: chart builder (all 8 types above).
-- **Phase 5**: polish, push to GitHub.
+- **Phase 4 (done)**: chart builder, all 8 types. Architecture: 4 types that only need one
+  aggregated value per entity over the whole filtered range (Scatter, Ranked Bar, Radar,
+  Distribution) reuse the already-fetched table rows client-side — no extra API call, and they
+  update live the instant the table's filters change, for free. The other 4 need per-gameweek
+  granularity (Time Series, Heatmap, Stacked Breakdown, Small Multiples), so Phase 4 added one
+  new endpoint, `POST /api/chart/series` (`backend/app/queries.py: query_series`), which reuses
+  the exact same per-team-window/opponent-filter/per-90/starts-only logic as the table queries,
+  just grouped by (entity, round) instead of collapsed across the whole range. Team-level series
+  reuse the same fixtures-authoritative-goals / summed-player-xG split as `query_teams`.
+  The "value" derived stat (see formula above) is computed client-side in `chartStats.ts` from
+  fields the table rows already have (price, position, total_points) — no backend involvement,
+  since it's a snapshot ratio, not a per-gameweek flow.
+  Each `ChartCard` is self-contained: a chart-type dropdown, a type-specific "choose data" panel
+  (entity picker + stat picker(s) + options), and inherits the parent's current filter state
+  live via props (season, team ranges, opponent filter, per-90, starts-only) — changing a table
+  filter re-renders/re-fetches every open chart automatically, per the design.
+  Verified in-browser, all 8 types, against data already known correct from earlier phases:
+  time series cumulative points ended exactly at each player's table total (Haaland 239);
+  per-gameweek mode showed sensible week-to-week variance; scatter (goals vs xG with a y=x
+  reference line) visually confirmed Haaland as the biggest over-performer; ranked bar matched
+  the table's points ordering, and separately surfaced sensible results for the "value" stat
+  (cheap performers like Truffert, not the same as the points ranking); radar rendered
+  percentile-normalized pentagons for 5 players; heatmap's hover tooltip read out the exact
+  correct value (Saka, GW26, 13 pts); stacked breakdown's per-gameweek defensive-contribution
+  bars for Rice matched his exact GW3-7 values from the very first Phase 0 spot-check
+  (13, 3, 9, 12, 5); small multiples rendered one sparkline per selected player, confirmed via
+  the live Plotly trace data since the browser tool's scroll became unreliable partway through
+  this session (a tool-session issue, not an app bug - confirmed by reading `data` directly off
+  the rendered `.js-plotly-plot` DOM node instead of trusting a screenshot).
+  One real UX bug found and fixed: entity selections persisted across chart-type switches
+  within a card, which silently blocked new picks once you hit Radar's 5-entity cap with
+  leftover selections from a previous type. Fixed by resetting the selection whenever the
+  chart type changes. Also fixed a minor CSS issue found along the way: gameweek-range inputs
+  were clipping "38" down to "3" (spin-button width, not a data bug — verified the underlying
+  value was always correct via direct DOM inspection).
+- **Phase 5 (next)**: polish, push to GitHub.

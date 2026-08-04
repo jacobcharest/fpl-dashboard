@@ -69,7 +69,7 @@
 
 .team-row {
   display: grid;
-  grid-template-columns: 18px 1fr 34px 34px 18px;
+  grid-template-columns: 18px 1fr 36px 36px 18px;
   align-items: center;
   gap: 6px;
   padding: 3px 2px;
@@ -90,13 +90,20 @@
 }
 
 .gw-input {
-  width: 32px;
+  width: 34px;
   background: #1c1c1c;
   color: #eee;
   border: 1px solid #333;
   border-radius: 3px;
   padding: 2px;
   font-size: 12px;
+  -moz-appearance: textfield;
+}
+
+.gw-input::-webkit-outer-spin-button,
+.gw-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
 
 .gw-input:disabled {

@@ -1,0 +1,32 @@
+.charts-panel {
+  margin-top: 24px;
+  border-top: 1px solid #2a2a2a;
+  padding-top: 12px;
+}
+
+.charts-panel-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.charts-panel-header h2 {
+  font-size: 15px;
+  margin: 0;
+  color: #eee;
+}
+
+.charts-panel-header button {
+  background: #1c1c1c;
+  color: #eee;
+  border: 1px solid #333;
+  border-radius: 4px;
+  padding: 5px 10px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.charts-panel-header button:hover {
+  background: #2a2a2a;
+}

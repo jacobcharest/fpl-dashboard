@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { getPlayerTable, getSeasonTeams, getSeasons, getTeamTable } from "./api";
+import { ChartsPanel } from "./components/ChartsPanel";
 import { FilterSidebar } from "./components/FilterSidebar";
 import { PlayerTable } from "./components/PlayerTable";
 import { TeamTable } from "./components/TeamTable";
@@ -47,15 +48,18 @@ function App() {
     });
   }, [seasonId]);
 
+  const teamRanges = useMemo(
+    () =>
+      teamFilters.filter((t) => t.included).map((t) => ({ team_code: t.team_code, start_gw: t.start_gw, end_gw: t.end_gw })),
+    [teamFilters]
+  );
+  const opponentTeamCodes = useMemo(() => {
+    const allOpponentsIncluded = teamFilters.every((t) => t.opponentIncluded);
+    return allOpponentsIncluded ? null : teamFilters.filter((t) => t.opponentIncluded).map((t) => t.team_code);
+  }, [teamFilters]);
+
   useEffect(() => {
     if (!seasonId || teamFilters.length === 0) return;
-
-    const included = teamFilters.filter((t) => t.included);
-    const teamRanges = included.map((t) => ({ team_code: t.team_code, start_gw: t.start_gw, end_gw: t.end_gw }));
-    const allOpponentsIncluded = teamFilters.every((t) => t.opponentIncluded);
-    const opponentTeamCodes = allOpponentsIncluded
-      ? null
-      : teamFilters.filter((t) => t.opponentIncluded).map((t) => t.team_code);
 
     setLoading(true);
     if (viewMode === "players") {
@@ -137,6 +141,16 @@ function App() {
           />
         )}
       </div>
+
+      <ChartsPanel
+        entityType={viewMode === "players" ? "player" : "team"}
+        rows={viewMode === "players" ? playerRows : teamRows}
+        seasonId={seasonId}
+        teamRanges={teamRanges}
+        opponentTeamCodes={opponentTeamCodes}
+        per90={per90}
+        startsOnly={startsOnly}
+      />
     </div>
   );
 }

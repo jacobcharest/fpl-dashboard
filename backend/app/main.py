@@ -5,7 +5,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from app.db import get_connection
-from app.queries import NumericFilter, SortSpec, TableFilters, TeamRange, query_players, query_teams
+from app.queries import (
+    NumericFilter,
+    SortSpec,
+    TableFilters,
+    TeamRange,
+    query_players,
+    query_series,
+    query_teams,
+)
 
 app = FastAPI(title="FPL Dashboard API")
 
@@ -43,6 +51,14 @@ class TableRequest(BaseModel):
 
 
 class PlayerTableRequest(TableRequest):
+    per90: bool = False
+    starts_only: bool = False
+
+
+class ChartSeriesRequest(TableRequest):
+    entity_type: Literal["player", "team"]
+    entity_codes: list[int]
+    stats: list[str]
     per90: bool = False
     starts_only: bool = False
 
@@ -88,5 +104,21 @@ def players_table(req: PlayerTableRequest):
 def teams_table(req: TableRequest):
     conn = get_connection()
     result = query_teams(conn, _to_table_filters(req))
+    conn.close()
+    return result
+
+
+@app.post("/api/chart/series")
+def chart_series(req: ChartSeriesRequest):
+    conn = get_connection()
+    result = query_series(
+        conn,
+        _to_table_filters(req),
+        entity_type=req.entity_type,
+        entity_codes=req.entity_codes,
+        stats=req.stats,
+        per90=req.per90,
+        starts_only=req.starts_only,
+    )
     conn.close()
     return result

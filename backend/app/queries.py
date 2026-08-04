@@ -251,3 +251,84 @@ def query_teams(conn, filters: TableFilters) -> list[dict]:
         "opponent_expected_goals", "opponent_expected_goals_conceded",
     ]
     return _records(df[columns])
+
+
+TEAM_SERIES_STATS = ["goals_scored", "expected_goals", "goals_conceded", "expected_goals_conceded"]
+
+
+def _player_series(conn, filters: TableFilters, entity_codes: list[int], stats: list[str],
+                    per90: bool, starts_only: bool) -> list[dict]:
+    """Per-(player, gameweek) values for the chart builder - same filters as query_players,
+    just not collapsed across rounds."""
+    player_gw, _fixtures, _teams, players = load_season_frames(conn, filters.season_id)
+
+    rows = _rows_in_team_windows(player_gw, filters.teams)
+    if filters.opponent_team_codes is not None:
+        rows = rows[rows["opponent_team_code"].isin(filters.opponent_team_codes)]
+    if starts_only:
+        rows = rows[rows["starts"] == 1]
+    rows = rows[rows["player_code"].isin(entity_codes)]
+    if rows.empty:
+        return []
+
+    agg = rows.groupby(["player_code", "round"]).agg(
+        minutes=("minutes", "sum"),
+        **{s: (s, "sum") for s in stats},
+    ).reset_index()
+
+    if per90:
+        for s in stats:
+            agg[s] = (agg[s] / agg["minutes"] * 90).where(agg["minutes"] > 0)
+
+    agg = agg.merge(players[["player_code", "web_name"]], on="player_code", how="left")
+    agg = agg.rename(columns={"player_code": "entity_code", "web_name": "name"})
+    columns = ["entity_code", "name", "round"] + stats
+    return _records(agg[columns].sort_values(["entity_code", "round"]))
+
+
+def _team_series(conn, filters: TableFilters, entity_codes: list[int], stats: list[str]) -> list[dict]:
+    """Per-(team, gameweek) values for the chart builder. Only TEAM_SERIES_STATS are supported -
+    goals/goals_conceded come from fixtures (authoritative score), expected_goals(_conceded) from
+    summing player-level expected_goals per fixture, same reasoning as query_teams."""
+    player_gw, fixtures, teams_df, _players = load_season_frames(conn, filters.season_id)
+    fixture_team_xg = _fixture_team_xg(player_gw)
+    opponent_filter = set(filters.opponent_team_codes) if filters.opponent_team_codes is not None else None
+    team_range = {t.team_code: (t.start_gw, t.end_gw) for t in filters.teams}
+    team_names = dict(zip(teams_df["team_code"], teams_df["name"]))
+
+    results = []
+    for team_code in entity_codes:
+        if team_code not in team_range:
+            continue
+        start, end = team_range[team_code]
+        mask = (fixtures["round"] >= start) & (fixtures["round"] <= end) & (
+            (fixtures["team_h_code"] == team_code) | (fixtures["team_a_code"] == team_code)
+        )
+        by_round: dict[int, dict] = {}
+        for _, g in fixtures[mask].iterrows():
+            is_home = g["team_h_code"] == team_code
+            opponent = g["team_a_code"] if is_home else g["team_h_code"]
+            if opponent_filter is not None and opponent not in opponent_filter:
+                continue
+            r = by_round.setdefault(
+                int(g["round"]),
+                {"goals_scored": 0.0, "goals_conceded": 0.0, "expected_goals": 0.0, "expected_goals_conceded": 0.0},
+            )
+            r["goals_scored"] += float(g["team_h_score"] if is_home else g["team_a_score"])
+            r["goals_conceded"] += float(g["team_a_score"] if is_home else g["team_h_score"])
+            r["expected_goals"] += float(fixture_team_xg.get((g["fixture_id"], team_code), 0.0))
+            r["expected_goals_conceded"] += float(fixture_team_xg.get((g["fixture_id"], opponent), 0.0))
+        for rnd, vals in sorted(by_round.items()):
+            row = {"entity_code": team_code, "name": team_names.get(team_code, "?"), "round": rnd}
+            for s in stats:
+                row[s] = vals.get(s)
+            results.append(row)
+
+    return _records(pd.DataFrame(results)) if results else []
+
+
+def query_series(conn, filters: TableFilters, entity_type: str, entity_codes: list[int],
+                  stats: list[str], per90: bool, starts_only: bool) -> list[dict]:
+    if entity_type == "player":
+        return _player_series(conn, filters, entity_codes, stats, per90, starts_only)
+    return _team_series(conn, filters, entity_codes, stats)

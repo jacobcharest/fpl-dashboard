@@ -1,5 +1,14 @@
 import axios from "axios";
-import type { PlayerRow, PlayerTableRequest, Season, TableRequest, TeamMeta, TeamRow } from "./types";
+import type {
+  ChartSeriesRequest,
+  PlayerRow,
+  PlayerTableRequest,
+  Season,
+  SeriesPoint,
+  TableRequest,
+  TeamMeta,
+  TeamRow,
+} from "./types";
 
 const client = axios.create({ baseURL: "http://localhost:8000" });
 
@@ -17,4 +26,8 @@ export async function getPlayerTable(req: PlayerTableRequest): Promise<PlayerRow
 
 export async function getTeamTable(req: TableRequest): Promise<TeamRow[]> {
   return (await client.post("/api/teams", req)).data;
+}
+
+export async function getChartSeries(req: ChartSeriesRequest): Promise<SeriesPoint[]> {
+  return (await client.post("/api/chart/series", req)).data;
 }

@@ -1,0 +1,124 @@
+.chart-card {
+  border: 1px solid #2a2a2a;
+  border-radius: 6px;
+  padding: 10px;
+  margin-bottom: 16px;
+  background: #151515;
+}
+
+.chart-card-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.chart-card-header select {
+  background: #1c1c1c;
+  color: #eee;
+  border: 1px solid #333;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 13px;
+}
+
+.remove-btn {
+  margin-left: auto;
+  background: transparent;
+  border: 1px solid #333;
+  color: #999;
+  border-radius: 4px;
+  cursor: pointer;
+  padding: 2px 8px;
+}
+
+.remove-btn:hover {
+  color: #eee;
+  border-color: #555;
+}
+
+.chart-card-body {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.chart-config {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 200px;
+  flex-shrink: 0;
+  font-size: 13px;
+}
+
+.chart-config label {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  color: #999;
+  font-size: 12px;
+}
+
+.chart-config select,
+.chart-config input[type="number"] {
+  background: #1c1c1c;
+  color: #eee;
+  border: 1px solid #333;
+  border-radius: 4px;
+  padding: 4px 6px;
+  font-size: 13px;
+}
+
+.toggle-row {
+  flex-direction: row !important;
+  align-items: center;
+  gap: 6px !important;
+  cursor: pointer;
+}
+
+.stat-multiselect {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 140px;
+  overflow-y: auto;
+  border: 1px solid #2a2a2a;
+  border-radius: 4px;
+  padding: 4px 6px;
+}
+
+.hint {
+  color: #777;
+  font-size: 11px;
+}
+
+.chart-render {
+  flex: 1;
+  min-width: 0;
+}
+
+.chart-placeholder {
+  color: #777;
+  font-size: 13px;
+  padding: 40px 0;
+  text-align: center;
+}
+
+.small-multiples-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.small-multiple {
+  border: 1px solid #2a2a2a;
+  border-radius: 4px;
+  padding: 4px;
+}
+
+.small-multiple-title {
+  font-size: 11px;
+  color: #ccc;
+  text-align: center;
+}

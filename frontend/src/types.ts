@@ -80,3 +80,28 @@ export interface TeamRow {
   opponent_expected_goals: number | null;
   opponent_expected_goals_conceded: number | null;
 }
+
+export type ChartType =
+  | "timeseries"
+  | "scatter"
+  | "ranked_bar"
+  | "radar"
+  | "heatmap"
+  | "distribution"
+  | "stacked"
+  | "small_multiples";
+
+export interface ChartSeriesRequest extends TableRequest {
+  entity_type: "player" | "team";
+  entity_codes: number[];
+  stats: string[];
+  per90: boolean;
+  starts_only: boolean;
+}
+
+export interface SeriesPoint {
+  entity_code: number;
+  name: string;
+  round: number;
+  [stat: string]: number | string | null;
+}
