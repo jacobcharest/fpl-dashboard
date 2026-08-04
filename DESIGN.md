@@ -138,9 +138,15 @@ arbitrary jump. Steps make step 1 the neutral baseline.
   `expected_goals` grouped by (fixture, team), since that stat genuinely is per-shot-taker.
   Tested against the user's own example scenario (Arsenal GW3-7 + Spurs GW4-8 in one table)
   and a full-season 20-team standings reconstruction.
-- **Phase 2 (next)**: frontend tables (player + team) with sorting/sticky row+col/season
-  dropdown, wired to the Phase 1 endpoints.
-- **Phase 3**: full filter sidebar (team checkboxes, per-team + global gameweek ranges,
+- **Phase 2 (done)**: React frontend (`frontend/src`) with season dropdown, player/team view
+  switcher, and both tables wired to the Phase 1 endpoints via a generic `DataTable` component
+  (`@tanstack/react-table`) — click-to-sort (server-side, via the existing `sort` param),
+  sticky header row, sticky first column. Default view requests every team for the season at
+  GW1-38 (no sidebar yet, so nothing is excluded). Verified in-browser: real 2025/26 data
+  renders correctly in both views, sort toggling refetches and reorders correctly, sticky
+  header/column both hold under scroll (confirmed by scrolling the table's own container, not
+  just eyeballing a static screenshot).
+- **Phase 3 (next)**: full filter sidebar (team checkboxes, per-team + global gameweek ranges,
   opponent toggle, per-90/starts-only, numeric column filters) wired to the query engine.
 - **Phase 4**: chart builder (all 8 types above).
 - **Phase 5**: polish, push to GitHub.
