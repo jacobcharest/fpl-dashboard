@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { getPlayerTable, getSeasonTeams, getSeasons, getTeamTable } from "./api";
+import { FilterSidebar } from "./components/FilterSidebar";
 import { PlayerTable } from "./components/PlayerTable";
 import { TeamTable } from "./components/TeamTable";
-import type { PlayerRow, Season, SortSpec, TeamMeta, TeamRow } from "./types";
+import type { NumericFilter, PlayerRow, Season, SortSpec, TeamFilterState, TeamRow } from "./types";
 import "./App.css";
 
 const MAX_GW = 38;
@@ -11,11 +12,15 @@ function App() {
   const [seasons, setSeasons] = useState<Season[]>([]);
   const [seasonId, setSeasonId] = useState<string>("");
   const [viewMode, setViewMode] = useState<"players" | "teams">("players");
-  const [teams, setTeams] = useState<TeamMeta[]>([]);
+  const [teamFilters, setTeamFilters] = useState<TeamFilterState[]>([]);
   const [playerRows, setPlayerRows] = useState<PlayerRow[]>([]);
   const [teamRows, setTeamRows] = useState<TeamRow[]>([]);
   const [playerSort, setPlayerSort] = useState<SortSpec | null>(null);
   const [teamSort, setTeamSort] = useState<SortSpec | null>(null);
+  const [playerFilters, setPlayerFilters] = useState<NumericFilter[]>([]);
+  const [teamNumericFilters, setTeamNumericFilters] = useState<NumericFilter[]>([]);
+  const [per90, setPer90] = useState(false);
+  const [startsOnly, setStartsOnly] = useState(false);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -28,23 +33,40 @@ function App() {
 
   useEffect(() => {
     if (!seasonId) return;
-    getSeasonTeams(seasonId).then(setTeams);
+    getSeasonTeams(seasonId).then((teams) => {
+      setTeamFilters(
+        teams.map((t) => ({
+          team_code: t.team_code,
+          name: t.name,
+          included: true,
+          opponentIncluded: true,
+          start_gw: 1,
+          end_gw: MAX_GW,
+        }))
+      );
+    });
   }, [seasonId]);
 
   useEffect(() => {
-    if (!seasonId || teams.length === 0) return;
-    const teamRanges = teams.map((t) => ({ team_code: t.team_code, start_gw: 1, end_gw: MAX_GW }));
+    if (!seasonId || teamFilters.length === 0) return;
+
+    const included = teamFilters.filter((t) => t.included);
+    const teamRanges = included.map((t) => ({ team_code: t.team_code, start_gw: t.start_gw, end_gw: t.end_gw }));
+    const allOpponentsIncluded = teamFilters.every((t) => t.opponentIncluded);
+    const opponentTeamCodes = allOpponentsIncluded
+      ? null
+      : teamFilters.filter((t) => t.opponentIncluded).map((t) => t.team_code);
 
     setLoading(true);
     if (viewMode === "players") {
       getPlayerTable({
         season_id: seasonId,
         teams: teamRanges,
-        opponent_team_codes: null,
-        filters: [],
+        opponent_team_codes: opponentTeamCodes,
+        filters: playerFilters,
         sort: playerSort,
-        per90: false,
-        starts_only: false,
+        per90,
+        starts_only: startsOnly,
       })
         .then(setPlayerRows)
         .finally(() => setLoading(false));
@@ -52,14 +74,14 @@ function App() {
       getTeamTable({
         season_id: seasonId,
         teams: teamRanges,
-        opponent_team_codes: null,
-        filters: [],
+        opponent_team_codes: opponentTeamCodes,
+        filters: teamNumericFilters,
         sort: teamSort,
       })
         .then(setTeamRows)
         .finally(() => setLoading(false));
     }
-  }, [seasonId, teams, viewMode, playerSort, teamSort]);
+  }, [seasonId, teamFilters, viewMode, playerSort, teamSort, playerFilters, teamNumericFilters, per90, startsOnly]);
 
   return (
     <div className="app">
@@ -85,11 +107,36 @@ function App() {
         {loading && <span className="loading">Loading…</span>}
       </header>
 
-      {viewMode === "players" ? (
-        <PlayerTable data={playerRows} sort={playerSort} onSortChange={setPlayerSort} />
-      ) : (
-        <TeamTable data={teamRows} sort={teamSort} onSortChange={setTeamSort} />
-      )}
+      <div className="main-layout">
+        <FilterSidebar
+          teams={teamFilters}
+          onChange={setTeamFilters}
+          maxGw={MAX_GW}
+          showPlayerToggles={viewMode === "players"}
+          per90={per90}
+          onPer90Change={setPer90}
+          startsOnly={startsOnly}
+          onStartsOnlyChange={setStartsOnly}
+        />
+
+        {viewMode === "players" ? (
+          <PlayerTable
+            data={playerRows}
+            sort={playerSort}
+            onSortChange={setPlayerSort}
+            filters={playerFilters}
+            onFiltersChange={setPlayerFilters}
+          />
+        ) : (
+          <TeamTable
+            data={teamRows}
+            sort={teamSort}
+            onSortChange={setTeamSort}
+            filters={teamNumericFilters}
+            onFiltersChange={setTeamNumericFilters}
+          />
+        )}
+      </div>
     </div>
   );
 }

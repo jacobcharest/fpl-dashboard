@@ -10,6 +10,15 @@ export interface TeamMeta {
   short_name: string;
 }
 
+export interface TeamFilterState {
+  team_code: number;
+  name: string;
+  included: boolean;
+  opponentIncluded: boolean;
+  start_gw: number;
+  end_gw: number;
+}
+
 export interface TeamRange {
   team_code: number;
   start_gw: number;

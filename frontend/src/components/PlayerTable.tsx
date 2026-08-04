@@ -1,5 +1,5 @@
 import { createColumnHelper, type ColumnDef } from "@tanstack/react-table";
-import type { PlayerRow, SortSpec } from "../types";
+import type { NumericFilter, PlayerRow, SortSpec } from "../types";
 import { DataTable } from "./DataTable";
 
 const helper = createColumnHelper<PlayerRow>();
@@ -22,13 +22,30 @@ const columns: ColumnDef<PlayerRow, any>[] = [
   helper.accessor("bonus", { header: "Bonus", cell: (i) => fmt(2)(i.getValue()) }),
 ];
 
+const FILTERABLE_COLUMNS = [
+  "price",
+  "total_points",
+  "minutes",
+  "goals_scored",
+  "expected_goals",
+  "assists",
+  "expected_assists",
+  "expected_goal_involvements",
+  "clean_sheets",
+  "expected_goals_conceded",
+  "defensive_contribution",
+  "bonus",
+];
+
 interface Props {
   data: PlayerRow[];
   sort: SortSpec | null;
   onSortChange: (sort: SortSpec) => void;
+  filters: NumericFilter[];
+  onFiltersChange: (filters: NumericFilter[]) => void;
 }
 
-export function PlayerTable({ data, sort, onSortChange }: Props) {
+export function PlayerTable({ data, sort, onSortChange, filters, onFiltersChange }: Props) {
   return (
     <DataTable
       data={data}
@@ -36,6 +53,9 @@ export function PlayerTable({ data, sort, onSortChange }: Props) {
       sort={sort}
       onSortChange={onSortChange}
       getRowId={(row) => row.player_code}
+      filterableColumnIds={FILTERABLE_COLUMNS}
+      filters={filters}
+      onFiltersChange={onFiltersChange}
     />
   );
 }

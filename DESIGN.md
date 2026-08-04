@@ -146,7 +146,26 @@ arbitrary jump. Steps make step 1 the neutral baseline.
   renders correctly in both views, sort toggling refetches and reorders correctly, sticky
   header/column both hold under scroll (confirmed by scrolling the table's own container, not
   just eyeballing a static screenshot).
-- **Phase 3 (next)**: full filter sidebar (team checkboxes, per-team + global gameweek ranges,
-  opponent toggle, per-90/starts-only, numeric column filters) wired to the query engine.
-- **Phase 4**: chart builder (all 8 types above).
+- **Phase 3 (done)**: `FilterSidebar` component — per-team include checkbox, per-team gameweek
+  range inputs, per-team opponent-include checkbox, Include All/Exclude All buttons, and a
+  global gameweek range with an "Apply to All" button (a one-time overwrite of every team's
+  range, not a persistent link, per the design note above). Per-90 and starts-only toggles
+  render only in Players view. Numeric column filters (>/<) live in a second sticky header row
+  in `DataTable` itself, committing on blur/Enter rather than on every keystroke. All of it
+  drives both tables through the same `teamFilters` state, satisfying "these settings apply to
+  both player data and team data."
+  Verified in-browser against independently-known-correct results: the Arsenal GW3-7 + Spurs
+  GW4-8 sidebar configuration reproduced the exact same per-player totals as the Phase 1 API
+  test (Rice 28pts/370min, Gabriel 35pts); per-90 math checked out arithmetically; starts-only
+  correctly dropped exactly Rice's 22-minute substitute appearance; a Pts > 20 numeric filter
+  correctly narrowed the set; and restricting opponents to Sunderland+Fulham reproduced the
+  exact Trossard 32pts/348min figure from the Phase 1 opponent-filter API test, in both the
+  player table and (using the same sidebar state) the team table.
+  One real bug found and fixed along the way: firing many rapid synchronous checkbox clicks
+  in a tight loop (a browser-automation-testing artifact, not real user input) exposed that
+  `FilterSidebar`'s `onChange` closures can go stale if fired faster than React re-renders
+  between them — not a problem for actual discrete mouse clicks, but worth knowing if this
+  code is ever driven programmatically (e.g. a future "preset" button that toggles many teams
+  at once) - use the functional `setState` form there if that's added.
+- **Phase 4 (next)**: chart builder (all 8 types above).
 - **Phase 5**: polish, push to GitHub.

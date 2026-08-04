@@ -1,0 +1,112 @@
+.filter-sidebar {
+  width: 260px;
+  flex-shrink: 0;
+  font-size: 13px;
+  color: #ddd;
+  overflow-y: auto;
+  max-height: calc(100vh - 100px);
+}
+
+.sidebar-section {
+  border: 1px solid #2a2a2a;
+  border-radius: 6px;
+  padding: 10px;
+  margin-bottom: 12px;
+}
+
+.section-title {
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: #eee;
+}
+
+.toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 0;
+  cursor: pointer;
+}
+
+.bulk-buttons {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.bulk-buttons button,
+.global-range button {
+  background: #1c1c1c;
+  color: #eee;
+  border: 1px solid #333;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.bulk-buttons button:hover,
+.global-range button:hover {
+  background: #2a2a2a;
+}
+
+.global-range {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.global-range input[type="number"] {
+  width: 44px;
+}
+
+.team-list {
+  max-height: 480px;
+  overflow-y: auto;
+  padding: 6px;
+}
+
+.team-row {
+  display: grid;
+  grid-template-columns: 18px 1fr 34px 34px 18px;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 2px;
+}
+
+.team-row-header {
+  color: #999;
+  font-size: 11px;
+  border-bottom: 1px solid #2a2a2a;
+  padding-bottom: 4px;
+  margin-bottom: 2px;
+}
+
+.team-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gw-input {
+  width: 32px;
+  background: #1c1c1c;
+  color: #eee;
+  border: 1px solid #333;
+  border-radius: 3px;
+  padding: 2px;
+  font-size: 12px;
+}
+
+.gw-input:disabled {
+  opacity: 0.4;
+}
+
+input[type="number"] {
+  background: #1c1c1c;
+  color: #eee;
+  border: 1px solid #333;
+  border-radius: 3px;
+  padding: 2px 4px;
+}

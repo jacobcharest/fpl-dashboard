@@ -1,5 +1,5 @@
 import { createColumnHelper, type ColumnDef } from "@tanstack/react-table";
-import type { SortSpec, TeamRow } from "../types";
+import type { NumericFilter, SortSpec, TeamRow } from "../types";
 import { DataTable } from "./DataTable";
 
 const helper = createColumnHelper<TeamRow>();
@@ -17,13 +17,25 @@ const columns: ColumnDef<TeamRow, any>[] = [
   helper.accessor("opponent_expected_goals", { header: "Opponent xG", cell: (i) => fmt(2)(i.getValue()) }),
 ];
 
+const FILTERABLE_COLUMNS = [
+  "table_place",
+  "goals_scored",
+  "expected_goals",
+  "goals_conceded",
+  "expected_goals_conceded",
+  "goal_difference",
+  "opponent_expected_goals",
+];
+
 interface Props {
   data: TeamRow[];
   sort: SortSpec | null;
   onSortChange: (sort: SortSpec) => void;
+  filters: NumericFilter[];
+  onFiltersChange: (filters: NumericFilter[]) => void;
 }
 
-export function TeamTable({ data, sort, onSortChange }: Props) {
+export function TeamTable({ data, sort, onSortChange, filters, onFiltersChange }: Props) {
   return (
     <DataTable
       data={data}
@@ -31,6 +43,9 @@ export function TeamTable({ data, sort, onSortChange }: Props) {
       sort={sort}
       onSortChange={onSortChange}
       getRowId={(row) => row.team_code}
+      filterableColumnIds={FILTERABLE_COLUMNS}
+      filters={filters}
+      onFiltersChange={onFiltersChange}
     />
   );
 }

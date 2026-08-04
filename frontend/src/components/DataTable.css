@@ -49,10 +49,40 @@
   z-index: 3;
 }
 
+.sticky-filter-row.sticky-col {
+  z-index: 3;
+}
+
 .data-table tbody tr:hover td {
   background: #202020;
 }
 
 .data-table tbody tr:hover td.sticky-col {
   background: #242424;
+}
+
+.filter-row th {
+  cursor: default;
+  padding: 4px 8px;
+}
+
+.sticky-filter-row {
+  position: sticky;
+  top: 37px;
+  z-index: 2;
+}
+
+.filter-cell {
+  display: table-cell;
+}
+
+.filter-cell input {
+  width: 44px;
+  background: #111;
+  color: #eee;
+  border: 1px solid #333;
+  border-radius: 3px;
+  padding: 2px 4px;
+  font-size: 12px;
+  margin-right: 3px;
 }

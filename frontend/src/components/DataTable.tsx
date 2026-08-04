@@ -1,5 +1,6 @@
 import { flexRender, getCoreRowModel, useReactTable, type ColumnDef } from "@tanstack/react-table";
-import type { SortSpec } from "../types";
+import { useState } from "react";
+import type { NumericFilter, SortSpec } from "../types";
 import "./DataTable.css";
 
 interface DataTableProps<T> {
@@ -8,9 +9,63 @@ interface DataTableProps<T> {
   sort: SortSpec | null;
   onSortChange: (sort: SortSpec) => void;
   getRowId: (row: T) => string | number;
+  filterableColumnIds: string[];
+  filters: NumericFilter[];
+  onFiltersChange: (filters: NumericFilter[]) => void;
 }
 
-export function DataTable<T>({ data, columns, sort, onSortChange, getRowId }: DataTableProps<T>) {
+function FilterCell({
+  columnId,
+  filters,
+  onFiltersChange,
+}: {
+  columnId: string;
+  filters: NumericFilter[];
+  onFiltersChange: (filters: NumericFilter[]) => void;
+}) {
+  const gt = filters.find((f) => f.column === columnId && f.op === "gt");
+  const lt = filters.find((f) => f.column === columnId && f.op === "lt");
+  const [gtText, setGtText] = useState(gt ? String(gt.value) : "");
+  const [ltText, setLtText] = useState(lt ? String(lt.value) : "");
+
+  const commit = (op: "gt" | "lt", text: string) => {
+    const rest = filters.filter((f) => !(f.column === columnId && f.op === op));
+    const value = text.trim() === "" ? null : Number(text);
+    onFiltersChange(value === null || Number.isNaN(value) ? rest : [...rest, { column: columnId, op, value }]);
+  };
+
+  return (
+    <th className="sticky-filter-row filter-cell">
+      <input
+        type="number"
+        placeholder=">"
+        value={gtText}
+        onChange={(e) => setGtText(e.target.value)}
+        onBlur={() => commit("gt", gtText)}
+        onKeyDown={(e) => e.key === "Enter" && commit("gt", gtText)}
+      />
+      <input
+        type="number"
+        placeholder="<"
+        value={ltText}
+        onChange={(e) => setLtText(e.target.value)}
+        onBlur={() => commit("lt", ltText)}
+        onKeyDown={(e) => e.key === "Enter" && commit("lt", ltText)}
+      />
+    </th>
+  );
+}
+
+export function DataTable<T>({
+  data,
+  columns,
+  sort,
+  onSortChange,
+  getRowId,
+  filterableColumnIds,
+  filters,
+  onFiltersChange,
+}: DataTableProps<T>) {
   const table = useReactTable({
     data,
     columns,
@@ -45,6 +100,20 @@ export function DataTable<T>({ data, columns, sort, onSortChange, getRowId }: Da
               })}
             </tr>
           ))}
+          <tr className="filter-row">
+            {table.getHeaderGroups()[0].headers.map((header, i) => {
+              const columnId = header.column.id;
+              if (i === 0) {
+                return <th key={header.id} className="sticky-col sticky-filter-row filter-cell" />;
+              }
+              if (!filterableColumnIds.includes(columnId)) {
+                return <th key={header.id} className="sticky-filter-row filter-cell" />;
+              }
+              return (
+                <FilterCell key={header.id} columnId={columnId} filters={filters} onFiltersChange={onFiltersChange} />
+              );
+            })}
+          </tr>
         </thead>
         <tbody>
           {table.getRowModel().rows.map((row) => (

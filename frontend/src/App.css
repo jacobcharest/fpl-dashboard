@@ -46,3 +46,14 @@ body {
   color: #999;
   font-size: 13px;
 }
+
+.main-layout {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.main-layout > div {
+  flex: 1;
+  min-width: 0;
+}
