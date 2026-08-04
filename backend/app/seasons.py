@@ -19,3 +19,21 @@ POSITION_BY_ELEMENT_TYPE = {1: "GK", 2: "DEF", 3: "MID", 4: "FWD"}
 
 # Lowest possible starting price per position, used by the "value added" derived stat.
 BASE_PRICE = {"GK": 4.0, "DEF": 4.0, "MID": 4.5, "FWD": 4.5}
+
+# 2016-17 and 2017-18 ship no teams.csv/fixtures.csv/raw.json in the source archive; 2018-19
+# ships no teams.csv (but has raw.json). For those, team_code is derived directly from each
+# season's own players_raw.csv (every player row carries their team's stable code) rather than
+# guessed - see resolve_teams() in backfill_history.py. This table only supplies short names for
+# display, since master_team_list.csv (the readable-name source for those seasons) has no
+# short-name column.
+TEAM_SHORT_NAME_BY_NAME = {
+    "Arsenal": "ARS", "Aston Villa": "AVL", "Bournemouth": "BOU", "Brentford": "BRE",
+    "Brighton": "BHA", "Burnley": "BUR", "Cardiff": "CAR", "Chelsea": "CHE",
+    "Crystal Palace": "CRY", "Everton": "EVE", "Fulham": "FUL", "Huddersfield": "HUD",
+    "Ipswich": "IPS", "Leeds": "LEE", "Leicester": "LEI", "Liverpool": "LIV",
+    "Luton": "LUT", "Man City": "MCI", "Man Utd": "MUN", "Newcastle": "NEW",
+    "Norwich": "NOR", "Nott'm Forest": "NFO", "Sheffield Utd": "SHU", "Southampton": "SOU",
+    "Spurs": "TOT", "Sunderland": "SUN", "Watford": "WAT", "West Brom": "WBA",
+    "West Ham": "WHU", "Wolves": "WOL",
+    "Hull": "HUL", "Middlesbrough": "MID", "Stoke": "STK", "Swansea": "SWA",
+}

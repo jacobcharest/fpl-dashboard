@@ -109,16 +109,38 @@ Step-normalizing (not raw £m) matters: with raw price difference as the denomin
 one £0.5m step above base would double their score relative to a player two steps up — an
 arbitrary jump. Steps make step 1 the neutral baseline.
 
+## Historical data coverage notes (from Phase 1 backfill)
+
+- All 10 seasons (2016/17 - 2025/26) are backfilled and validated. The source archive is
+  missing `teams.csv`/`fixtures.csv` for 2016-17 and 2017-18, and `teams.csv` for 2018-19;
+  those are reconstructed (team identity from `players_raw.csv`'s own stable `team_code`
+  column + `master_team_list.csv` for readable names; fixtures from a majority vote over
+  `gws/merged_gw.csv` rows, since there's no per-round "own team" field that far back — a
+  player's own team for those two orphan seasons falls back to their season-end
+  `players_raw.csv` snapshot, which is wrong for the rare player who transferred mid-season;
+  majority-voting across every row referencing the same fixture cancels that noise out).
+  Verified by reconstructing the final 2016/17 and 2017/18 league tables end-to-end from the
+  DB and confirming they match the real historical standings exactly (points, GD, and finishing
+  position for all 20 teams in both seasons, including the four clubs — Hull, Middlesbrough,
+  Stoke, Swansea — that never reappear in a later `teams.csv`).
+- `backend/scripts/backfill_history.py` is idempotent per season (safe to re-run `--all`).
+
 ## Status
 
 - **Phase 0 (done)**: repo scaffolded, schema in place, backend (FastAPI) and frontend
-  (Vite/React/TS) skeletons both build/run, backfill script validated end-to-end against the
-  2025/26 season (20 teams, 841 players, 380/380 fixtures, 29,747/29,747 gw-stat rows, zero
-  unmapped ids). Spot-checked against real data (e.g. Declan Rice GW3-7 log).
-- **Phase 1 (next)**: backfill remaining 9 seasons; build the filter/query engine (team/opponent
-  include-exclude, per-team + global gameweek ranges, per-90, starts-only, numeric filters) as
-  reusable backend query logic; expose table endpoints.
-- **Phase 2**: frontend tables (player + team) with sorting/sticky row+col/season dropdown.
-- **Phase 3**: full filter sidebar wired to the query engine.
+  (Vite/React/TS) skeletons both build/run, backfill script validated end-to-end.
+- **Phase 1 (done)**: all 10 seasons backfilled and validated (see above). Filter/query engine
+  built in `backend/app/queries.py` (per-team gameweek ranges, opponent include/exclude,
+  per-90, starts-only, numeric filters, sorting) and exposed via `POST /api/players` and
+  `POST /api/teams`. Team-level goals/goals-against come from `fixtures` (authoritative
+  scoreline; summing player rows would over-count goals_conceded/clean_sheets, which are
+  shared across the whole squad that played); team xG/xGA are built by summing player-level
+  `expected_goals` grouped by (fixture, team), since that stat genuinely is per-shot-taker.
+  Tested against the user's own example scenario (Arsenal GW3-7 + Spurs GW4-8 in one table)
+  and a full-season 20-team standings reconstruction.
+- **Phase 2 (next)**: frontend tables (player + team) with sorting/sticky row+col/season
+  dropdown, wired to the Phase 1 endpoints.
+- **Phase 3**: full filter sidebar (team checkboxes, per-team + global gameweek ranges,
+  opponent toggle, per-90/starts-only, numeric column filters) wired to the query engine.
 - **Phase 4**: chart builder (all 8 types above).
 - **Phase 5**: polish, push to GitHub.
