@@ -61,8 +61,10 @@ fixture). Team standings, xG aggregates, per-90 conversion, and filtered stats a
 
 ## Table columns
 
-**Player table**: name (frozen), price, total points, minutes, goals, xG, assists, xA, xGI,
-clean sheets, xGA, defensive contributions, bonus points.
+**Player table**: name (frozen), position, price, total points, minutes, goals, xG, assists, xA,
+xGI, clean sheets, xGA, defensive contributions, bonus points, BPS, saves, yellow cards, red
+cards, influence, creativity, threat, ICT index (the last 8 added post-launch per user request -
+see "Post-launch fixes" below).
 
 **Team table**: name (frozen), table place, goals, xG, goals against, xGA, goal difference,
 opponent xG, opponent xGA.
@@ -267,3 +269,39 @@ arbitrary jump. Steps make step 1 the neutral baseline.
   component - confirmed by adding temporary render/click logging, which showed the state
   updating correctly, then confirmed the dropdown genuinely opens and filters correctly once
   checked at a clean point. Removed the diagnostic logging before finishing.
+
+## Post-launch fixes, round 2
+
+- **Per-90 points formatting**: raw points display as whole numbers, but a per-90 rate (e.g.
+  7.4) needs a decimal place to mean anything. `PlayerTable`'s column defs are now built by a
+  `buildColumns(per90)` function (memoized on the `per90` prop) instead of a static array, so
+  the Pts column can switch between 0 and 1 decimal place depending on the toggle. Every other
+  stat column already showed 2 decimals regardless of per90 state, which was already fine.
+- **Investigated the "Coleman tops per-90 points with 9 minutes" report**: not a bug. Queried
+  the database directly - Séamus Coleman genuinely has `starts=1`, 9 minutes, 1 point in GW12
+  2025/26 in the source data (matches the real official FPL record; almost certainly an early
+  injury substitution). The confusing part is purely a property of per-90 extrapolation on a
+  tiny sample (1 point / 9 minutes × 90 = 10.0/90) - mathematically correct, statistically
+  noisy. Not fixed, because there's nothing wrong to fix: the existing numeric filter row
+  already lets you exclude small samples yourself (e.g. `Mins > 90`) without baking in an
+  opinionated, invisible cutoff that would just move the confusion elsewhere.
+- **8 new player stat columns**, added at the end of the table per user request after reviewing
+  what the source data already provides: BPS (bonus points score - was already being ingested
+  and stored, just never queried or displayed, so free to add), plus Saves, Yellow Cards, Red
+  Cards, Influence, Creativity, Threat, and ICT Index (all new - required a schema change,
+  updating `refresh.py`'s per-row insert, and a full re-backfill of all 10 seasons + the
+  2026/27 placeholder). Confirmed availability across the whole archive first, including the
+  oldest season (2016/17), before committing to the schema change.
+  Found and fixed a real bug during this: `create_placeholder_season.py`'s clone step has an
+  explicit column list (by design, safer than `SELECT *` for INSERT mapping) that predated
+  these fields, so the 2026/27 placeholder was silently getting `NULL` for all 8 new columns
+  until the clone step was updated too and the placeholder regenerated. A lesson for next time
+  a `player_gw_stats` column gets added: `refresh.py` isn't the only place that writes that
+  table - check `create_placeholder_season.py`'s explicit column lists as well.
+  Also found and fixed a real CSS bug while verifying the new columns' horizontal scroll: the
+  frozen name column was going semi-transparent on every other row and letting scrolled-away
+  column values bleed through visually. Cause: the zebra-striping rule
+  (`tr:nth-child(even) td`) has higher specificity than `.sticky-col`'s own background rule, so
+  it silently won on even rows - the same class of bug the `:hover` state had already worked
+  around explicitly, but the striping rule was added later (Phase 5 visual redesign) without
+  the equivalent override. Fixed with a matching `tr:nth-child(even) td.sticky-col` rule.

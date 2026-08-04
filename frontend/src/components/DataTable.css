@@ -85,6 +85,12 @@
   background: rgba(255, 255, 255, 0.012);
 }
 
+/* The sticky column must stay fully opaque - a translucent background lets whatever's
+   scrolled underneath show through as visual noise while horizontally scrolling. */
+.data-table tbody tr:nth-child(even) td.sticky-col {
+  background: var(--surface);
+}
+
 .data-table tbody tr:hover td {
   background: var(--surface-2);
 }

@@ -74,6 +74,13 @@ CREATE TABLE IF NOT EXISTS player_gw_stats (
     expected_goal_involvements    REAL,   -- NULL before 2022/23
     expected_goals_conceded       REAL,   -- NULL before 2022/23
     defensive_contribution        INTEGER, -- NULL before 2025/26
+    saves                         INTEGER,
+    yellow_cards                  INTEGER,
+    red_cards                     INTEGER,
+    influence                     REAL,
+    creativity                    REAL,
+    threat                        REAL,
+    ict_index                     REAL,
     price                        INTEGER, -- price * 10 at time of this gameweek
     PRIMARY KEY (season_id, player_code, round, fixture_id)
 );

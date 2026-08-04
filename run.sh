@@ -20,4 +20,20 @@ echo "Starting frontend on http://localhost:5173 ..."
 (cd frontend && npm run dev) &
 FRONTEND_PID=$!
 
+# Open the app in the default browser once the frontend is actually ready, instead of
+# right away (it isn't listening yet at this point).
+(
+  for _ in $(seq 1 60); do
+    if curl -s -o /dev/null http://localhost:5173; then
+      if command -v open >/dev/null; then
+        open http://localhost:5173
+      elif command -v xdg-open >/dev/null; then
+        xdg-open http://localhost:5173
+      fi
+      break
+    fi
+    sleep 0.5
+  done
+) &
+
 wait

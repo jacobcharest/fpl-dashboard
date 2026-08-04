@@ -67,11 +67,13 @@ def create_placeholder_season(conn, source_season_id: str, target_season_id: str
              (season_id, player_code, round, fixture_id, team_code, opponent_team_code, was_home,
               minutes, starts, goals_scored, assists, clean_sheets, goals_conceded, bonus, bps,
               total_points, expected_goals, expected_assists, expected_goal_involvements,
-              expected_goals_conceded, defensive_contribution, price)
+              expected_goals_conceded, defensive_contribution, saves, yellow_cards, red_cards,
+              influence, creativity, threat, ict_index, price)
            SELECT ?, player_code, round, fixture_id, team_code, opponent_team_code, was_home,
               minutes, starts, goals_scored, assists, clean_sheets, goals_conceded, bonus, bps,
               total_points, expected_goals, expected_assists, expected_goal_involvements,
-              expected_goals_conceded, defensive_contribution, price
+              expected_goals_conceded, defensive_contribution, saves, yellow_cards, red_cards,
+              influence, creativity, threat, ict_index, price
            FROM player_gw_stats WHERE season_id = ?""",
         (target_season_id, source_season_id),
     )

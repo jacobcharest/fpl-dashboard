@@ -70,6 +70,14 @@ export interface PlayerRow {
   expected_goals_conceded: number;
   defensive_contribution: number | null;
   bonus: number;
+  bps: number;
+  saves: number;
+  yellow_cards: number;
+  red_cards: number;
+  influence: number;
+  creativity: number;
+  threat: number;
+  ict_index: number;
 }
 
 export interface TeamRow {

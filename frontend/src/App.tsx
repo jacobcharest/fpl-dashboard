@@ -190,6 +190,7 @@ function App() {
             onFiltersChange={setPlayerFilters}
             positions={positions}
             onPositionsChange={setPositions}
+            per90={per90}
           />
         ) : (
           <TeamTable

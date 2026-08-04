@@ -316,6 +316,13 @@ def backfill_season(conn, season_id: str) -> dict:
                 int(col(row, "defensive_contribution"))
                 if col(row, "defensive_contribution") is not None
                 else None,
+                int(col(row, "saves") or 0),
+                int(col(row, "yellow_cards") or 0),
+                int(col(row, "red_cards") or 0),
+                float(col(row, "influence") or 0),
+                float(col(row, "creativity") or 0),
+                float(col(row, "threat") or 0),
+                float(col(row, "ict_index") or 0),
                 int(col(row, "value")) if col(row, "value") is not None else None,
             )
         )
@@ -325,8 +332,9 @@ def backfill_season(conn, season_id: str) -> dict:
              (season_id, player_code, round, fixture_id, team_code, opponent_team_code, was_home,
               minutes, starts, goals_scored, assists, clean_sheets, goals_conceded, bonus, bps,
               total_points, expected_goals, expected_assists, expected_goal_involvements,
-              expected_goals_conceded, defensive_contribution, price)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+              expected_goals_conceded, defensive_contribution, saves, yellow_cards, red_cards,
+              influence, creativity, threat, ict_index, price)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         rows_to_insert,
     )
 

@@ -32,6 +32,14 @@ PLAYER_STAT_COLUMNS = [
     "expected_goals_conceded",
     "defensive_contribution",
     "bonus",
+    "bps",
+    "saves",
+    "yellow_cards",
+    "red_cards",
+    "influence",
+    "creativity",
+    "threat",
+    "ict_index",
 ]
 
 
