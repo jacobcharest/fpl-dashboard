@@ -1,6 +1,8 @@
 import { createColumnHelper, type ColumnDef } from "@tanstack/react-table";
 import type { NumericFilter, PlayerRow, SortSpec } from "../types";
 import { DataTable } from "./DataTable";
+import { PositionBadge } from "./PositionBadge";
+import { PositionFilter } from "./PositionFilter";
 
 const helper = createColumnHelper<PlayerRow>();
 
@@ -8,6 +10,7 @@ const fmt = (digits: number) => (v: number | null) => (v == null ? "-" : v.toFix
 
 const columns: ColumnDef<PlayerRow, any>[] = [
   helper.accessor("web_name", { header: "Player", cell: (i) => i.getValue() }),
+  helper.accessor("position", { header: "Pos", cell: (i) => <PositionBadge position={i.getValue()} /> }),
   helper.accessor("price", { header: "Price", cell: (i) => `£${i.getValue().toFixed(1)}` }),
   helper.accessor("total_points", { header: "Pts", cell: (i) => fmt(0)(i.getValue()) }),
   helper.accessor("minutes", { header: "Mins", cell: (i) => fmt(0)(i.getValue()) }),
@@ -43,9 +46,19 @@ interface Props {
   onSortChange: (sort: SortSpec) => void;
   filters: NumericFilter[];
   onFiltersChange: (filters: NumericFilter[]) => void;
+  positions: string[] | null;
+  onPositionsChange: (positions: string[] | null) => void;
 }
 
-export function PlayerTable({ data, sort, onSortChange, filters, onFiltersChange }: Props) {
+export function PlayerTable({
+  data,
+  sort,
+  onSortChange,
+  filters,
+  onFiltersChange,
+  positions,
+  onPositionsChange,
+}: Props) {
   return (
     <DataTable
       data={data}
@@ -56,6 +69,9 @@ export function PlayerTable({ data, sort, onSortChange, filters, onFiltersChange
       filterableColumnIds={FILTERABLE_COLUMNS}
       filters={filters}
       onFiltersChange={onFiltersChange}
+      customFilterColumns={{
+        position: <PositionFilter selected={positions} onChange={onPositionsChange} />,
+      }}
     />
   );
 }

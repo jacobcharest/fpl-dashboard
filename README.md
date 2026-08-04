@@ -33,6 +33,20 @@ pull the latest gameweek results for whichever season is selected — that's the
 no need to re-run the script by hand. It hits `POST /api/refresh/{season_id}`, which is safe to
 call repeatedly (it re-ingests the season from scratch rather than trying to append).
 
+### Not-yet-started seasons
+
+A season that hasn't kicked off yet won't exist in the source archive, but FPL usually reveals
+prices ahead of time. To populate one as a placeholder (previous season's results + current
+season's prices, clearly flagged in the UI), run:
+
+```bash
+backend/.venv/bin/python backend/scripts/create_placeholder_season.py 2025-26 2026-27
+```
+
+No action needed once the season actually starts — the normal "Fetch New Data" button
+automatically replaces the placeholder with real data and clears the flag the first time it
+succeeds.
+
 ## Run
 
 ```bash

@@ -42,6 +42,7 @@ export function FilterSidebar({
     <aside className="filter-sidebar">
       {showPlayerToggles && (
         <div className="sidebar-section">
+          <div className="section-title">Display</div>
           <label className="toggle-row">
             <input type="checkbox" checked={per90} onChange={(e) => onPer90Change(e.target.checked)} />
             Per 90

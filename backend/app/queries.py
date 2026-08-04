@@ -62,6 +62,7 @@ class TableFilters:
     opponent_team_codes: list[int] | None = None
     filters: list[NumericFilter] = field(default_factory=list)
     sort: SortSpec | None = None
+    positions: list[str] | None = None  # players only; None = no filter (all positions)
 
 
 def load_season_frames(conn, season_id: str):
@@ -147,6 +148,9 @@ def query_players(conn, filters: TableFilters, per90: bool, starts_only: bool) -
     agg["price"] = agg["price"] / 10.0
     agg = agg.merge(players, on="player_code", how="left")
     agg = agg.merge(teams[["team_code", "name"]].rename(columns={"name": "team_name"}), on="team_code", how="left")
+
+    if filters.positions is not None:
+        agg = agg[agg["position"].isin(filters.positions)]
 
     agg = _apply_numeric_filters(agg, filters.filters)
     agg = _apply_sort(agg, filters.sort, default_column="total_points")

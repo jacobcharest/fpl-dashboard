@@ -1,5 +1,5 @@
 import { flexRender, getCoreRowModel, useReactTable, type ColumnDef } from "@tanstack/react-table";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import type { NumericFilter, SortSpec } from "../types";
 import "./DataTable.css";
 
@@ -12,6 +12,7 @@ interface DataTableProps<T> {
   filterableColumnIds: string[];
   filters: NumericFilter[];
   onFiltersChange: (filters: NumericFilter[]) => void;
+  customFilterColumns?: Record<string, ReactNode>;
 }
 
 function FilterCell({
@@ -65,6 +66,7 @@ export function DataTable<T>({
   filterableColumnIds,
   filters,
   onFiltersChange,
+  customFilterColumns = {},
 }: DataTableProps<T>) {
   const table = useReactTable({
     data,
@@ -82,10 +84,13 @@ export function DataTable<T>({
               {headerGroup.headers.map((header, i) => {
                 const columnId = header.column.id;
                 const isSorted = sort?.column === columnId;
+                const classes = [i === 0 ? "sticky-col" : "", "sticky-header", isSorted ? "col-sorted" : ""]
+                  .filter(Boolean)
+                  .join(" ");
                 return (
                   <th
                     key={header.id}
-                    className={i === 0 ? "sticky-col sticky-header" : "sticky-header"}
+                    className={classes}
                     onClick={() =>
                       onSortChange({
                         column: columnId,
@@ -105,6 +110,13 @@ export function DataTable<T>({
               const columnId = header.column.id;
               if (i === 0) {
                 return <th key={header.id} className="sticky-col sticky-filter-row filter-cell" />;
+              }
+              if (customFilterColumns[columnId]) {
+                return (
+                  <th key={header.id} className="sticky-filter-row filter-cell">
+                    {customFilterColumns[columnId]}
+                  </th>
+                );
               }
               if (!filterableColumnIds.includes(columnId)) {
                 return <th key={header.id} className="sticky-filter-row filter-cell" />;

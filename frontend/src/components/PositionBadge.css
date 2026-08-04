@@ -1,0 +1,25 @@
+.position-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.position-GK {
+  background: color-mix(in srgb, var(--pos-gk) 18%, transparent);
+  color: var(--pos-gk);
+}
+.position-DEF {
+  background: color-mix(in srgb, var(--pos-def) 18%, transparent);
+  color: var(--pos-def);
+}
+.position-MID {
+  background: color-mix(in srgb, var(--pos-mid) 18%, transparent);
+  color: var(--pos-mid);
+}
+.position-FWD {
+  background: color-mix(in srgb, var(--pos-fwd) 18%, transparent);
+  color: var(--pos-fwd);
+}

@@ -65,6 +65,7 @@ class TableRequest(BaseModel):
 class PlayerTableRequest(TableRequest):
     per90: bool = False
     starts_only: bool = False
+    positions: list[str] | None = None
 
 
 class ChartSeriesRequest(TableRequest):
@@ -82,13 +83,16 @@ def _to_table_filters(req: TableRequest) -> TableFilters:
         opponent_team_codes=req.opponent_team_codes,
         filters=[NumericFilter(f.column, f.op, f.value) for f in req.filters],
         sort=SortSpec(req.sort.column, req.sort.direction) if req.sort else None,
+        positions=getattr(req, "positions", None),
     )
 
 
 @app.get("/api/seasons")
 def list_seasons():
     conn = get_connection()
-    rows = conn.execute("SELECT id, label, backfilled FROM seasons ORDER BY id").fetchall()
+    rows = conn.execute(
+        "SELECT id, label, backfilled, is_placeholder FROM seasons ORDER BY id"
+    ).fetchall()
     conn.close()
     return [dict(r) for r in rows]
 

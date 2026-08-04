@@ -12,6 +12,7 @@ Usage:
 import argparse
 import sys
 from pathlib import Path
+from urllib.error import HTTPError
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
@@ -36,7 +37,16 @@ def main():
     targets = [s["id"] for s in SEASONS] if args.all else [args.season]
     for season_id in targets:
         print(f"[{season_id}] fetching and ingesting ...")
-        summary = backfill_season(conn, season_id)
+        try:
+            summary = backfill_season(conn, season_id)
+        except HTTPError as e:
+            if e.code == 404 and args.all:
+                # A not-yet-started season can be listed in SEASONS ahead of time (e.g. as a
+                # placeholder-data target - see create_placeholder_season.py) before the source
+                # archive has a folder for it. --all should skip it, not abort the whole run.
+                print(f"[{season_id}] skipped: not in the source archive yet (404)")
+                continue
+            raise
         print(
             f"[{season_id}] done: {summary['teams']} teams, {summary['players']} players, "
             f"{summary['fixtures']} fixtures, {summary['gw_rows_inserted']}/{summary['gw_rows_total']} "

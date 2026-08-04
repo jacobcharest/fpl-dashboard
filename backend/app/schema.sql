@@ -3,11 +3,12 @@
 -- season-specific numeric ids from the source data are only used as join keys during ingestion.
 
 CREATE TABLE IF NOT EXISTS seasons (
-    id         TEXT PRIMARY KEY,   -- e.g. '2025-26'
-    label      TEXT NOT NULL,      -- e.g. '2025/26'
-    start_date TEXT,
-    end_date   TEXT,
-    backfilled INTEGER NOT NULL DEFAULT 0
+    id            TEXT PRIMARY KEY,   -- e.g. '2025-26'
+    label         TEXT NOT NULL,      -- e.g. '2025/26'
+    start_date    TEXT,
+    end_date      TEXT,
+    backfilled    INTEGER NOT NULL DEFAULT 0,
+    is_placeholder INTEGER NOT NULL DEFAULT 0  -- season hasn't started; data is a stand-in (see scripts/create_placeholder_season.py)
 );
 
 CREATE TABLE IF NOT EXISTS teams (

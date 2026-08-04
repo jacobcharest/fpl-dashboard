@@ -221,3 +221,49 @@ arbitrary jump. Steps make step 1 the neutral baseline.
   and confirming the banner cleared and fresh data loaded, all checked via direct DOM inspection
   since the browser tool's screenshots were unreliable this session); removed the leftover
   generic Vite template `frontend/README.md` (superseded by the real one at the repo root).
+
+## Post-launch fixes (user feedback round)
+
+- **Position column + filter**: `position` was already in the `/api/players` response
+  (from `player_season`); the gap was purely on the frontend. Added it as the table's second
+  column, rendered as a colored badge (`PositionBadge`), and added a categorical filter — a
+  dropdown in the column header (`PositionFilter`) rather than the numeric `>`/`<` inputs the
+  other columns use, since position is categorical. Backend: `TableFilters.positions` (a
+  `list[str] | None`, `None` = no filter) applied in `query_players` after the position column
+  is merged in. `DataTable` gained a `customFilterColumns` prop so a column can substitute a
+  custom filter widget for the default numeric one, keeping the numeric-filter code path
+  (`FilterCell`) untouched. Verified end-to-end: filtering to DEF-only, then MID-only, correctly
+  narrowed the table both times.
+- **2026/27 placeholder season**: the season hasn't started, but FPL reveals prices ahead of
+  time. Added `scripts/create_placeholder_season.py`, which clones an entire prior season
+  (teams/player_season/fixtures/player_gw_stats - literally last year replayed) into the new
+  season_id, then overlays real current prices for every player_code found in the live
+  `bootstrap-static` API (841 players cloned, 457 got a live price - the rest are players no
+  longer in a top-flight squad, e.g. the three relegated teams' rosters, and correctly keep
+  last season's price as a fallback). Added `seasons.is_placeholder` (schema change) so the
+  frontend can show a banner rather than presenting stale data as if it were real - this was
+  a deliberate transparency call, not just a nice-to-have. The normal refresh path
+  (`backfill_season`) now also clears `is_placeholder` on success, so once the source archive
+  has real 2026/27 data, clicking the existing "Fetch New Data" button replaces the placeholder
+  automatically - no separate manual step needed later.
+  Verified: Haaland's price moved £14.0 → £15.5 and Rice's £6.5 → £7.5 between the 2025/26 base
+  and the 2026/27 placeholder, while `player_gw_stats` row counts matched the source season
+  exactly (841/380/29,747), confirming the clone-plus-price-overlay did what it was supposed to.
+  Also had to make `backfill_history.py --all` skip a season that 404s instead of aborting the
+  whole run, since a future season can now legitimately be listed in `SEASONS` before the
+  archive has a folder for it.
+- **Visual redesign**: the UI was functionally complete but visually flat. Added a proper
+  design-token system (`theme.css`: surface/border/text scales, a green/purple accent pair,
+  per-position badge colors, consistent radius/shadow tokens) and applied it across every
+  component's CSS, replacing hardcoded hex values throughout. Notable pieces: a gradient
+  wordmark, a primary "Fetch New Data" button with a glow-on-hover state, colored position
+  badges (GK amber / DEF blue / MID green / FWD pink) that double as a readability aid in the
+  table, an accent-colored active-sort-column indicator, and a top accent stripe on chart
+  cards. Plotly's chart colors (`plotlyTheme.ts`) were updated to match by hand, since Plotly
+  configs are plain JS and can't reference CSS custom properties directly.
+  While verifying the position filter dropdown, hit what looked like a real bug (menu wouldn't
+  open) that turned out to be a false alarm from the browser tool's session flakiness (a
+  crashed-and-reopened pane plus HMR reconnects duplicating console output) rather than the
+  component - confirmed by adding temporary render/click logging, which showed the state
+  updating correctly, then confirmed the dropdown genuinely opens and filters correctly once
+  checked at a clean point. Removed the diagnostic logging before finishing.

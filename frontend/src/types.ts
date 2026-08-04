@@ -2,6 +2,7 @@ export interface Season {
   id: string;
   label: string;
   backfilled: number;
+  is_placeholder: number;
 }
 
 export interface TeamMeta {
@@ -47,7 +48,10 @@ export interface TableRequest {
 export interface PlayerTableRequest extends TableRequest {
   per90: boolean;
   starts_only: boolean;
+  positions: string[] | null;
 }
+
+export const POSITIONS = ["GK", "DEF", "MID", "FWD"] as const;
 
 export interface PlayerRow {
   player_code: number;

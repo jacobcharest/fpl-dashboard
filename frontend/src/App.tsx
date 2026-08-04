@@ -24,6 +24,7 @@ function App() {
   const [teamSort, setTeamSort] = useState<SortSpec | null>(null);
   const [playerFilters, setPlayerFilters] = useState<NumericFilter[]>([]);
   const [teamNumericFilters, setTeamNumericFilters] = useState<NumericFilter[]>([]);
+  const [positions, setPositions] = useState<string[] | null>(null);
   const [per90, setPer90] = useState(false);
   const [startsOnly, setStartsOnly] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -80,6 +81,7 @@ function App() {
         sort: playerSort,
         per90,
         starts_only: startsOnly,
+        positions,
       })
         .then(setPlayerRows)
         .catch((err) => setFetchError(errorMessage(err)))
@@ -106,8 +108,11 @@ function App() {
     teamNumericFilters,
     per90,
     startsOnly,
+    positions,
     refreshNonce,
   ]);
+
+  const currentSeason = useMemo(() => seasons.find((s) => s.id === seasonId), [seasons, seasonId]);
 
   const handleRefresh = () => {
     if (!seasonId || refreshing) return;
@@ -150,6 +155,14 @@ function App() {
         {loading && <span className="loading">Loading…</span>}
       </header>
 
+      {currentSeason?.is_placeholder === 1 && (
+        <div className="placeholder-banner">
+          {currentSeason.label} hasn't started yet — showing last season's results with current{" "}
+          {currentSeason.label} prices as a stand-in. Use "Fetch New Data" once real fixtures have been
+          played to replace this.
+        </div>
+      )}
+
       {fetchError && (
         <div className="fetch-error">
           Couldn't load data: {fetchError}. Is the backend running (<code>./run.sh</code>)?
@@ -175,6 +188,8 @@ function App() {
             onSortChange={setPlayerSort}
             filters={playerFilters}
             onFiltersChange={setPlayerFilters}
+            positions={positions}
+            onPositionsChange={setPositions}
           />
         ) : (
           <TeamTable

@@ -2,30 +2,36 @@
   width: 260px;
   flex-shrink: 0;
   font-size: 13px;
-  color: #ddd;
+  color: var(--text-dim);
   overflow-y: auto;
-  max-height: calc(100vh - 100px);
+  max-height: calc(100vh - 120px);
 }
 
 .sidebar-section {
-  border: 1px solid #2a2a2a;
-  border-radius: 6px;
-  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  padding: 12px;
   margin-bottom: 12px;
+  box-shadow: var(--shadow-sm);
 }
 
 .section-title {
-  font-weight: 600;
-  margin-bottom: 8px;
-  color: #eee;
+  font-weight: 700;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 10px;
+  color: var(--text-faint);
 }
 
 .toggle-row {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 2px 0;
+  padding: 3px 0;
   cursor: pointer;
+  accent-color: var(--accent);
 }
 
 .bulk-buttons {
@@ -36,35 +42,41 @@
 
 .bulk-buttons button,
 .global-range button {
-  background: #1c1c1c;
-  color: #eee;
-  border: 1px solid #333;
-  border-radius: 4px;
-  padding: 4px 8px;
+  background: var(--surface-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 5px 9px;
   font-size: 12px;
+  font-weight: 500;
   cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
 }
 
 .bulk-buttons button:hover,
 .global-range button:hover {
-  background: #2a2a2a;
+  background: var(--surface-3);
+  border-color: var(--border-strong);
 }
 
 .global-range {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
   flex-wrap: wrap;
+  color: var(--text-faint);
+  font-size: 12px;
 }
 
 .global-range input[type="number"] {
-  width: 44px;
+  width: 42px;
 }
 
 .team-list {
   max-height: 480px;
   overflow-y: auto;
-  padding: 6px;
+  padding: 4px;
+  accent-color: var(--accent);
 }
 
 .team-row {
@@ -72,29 +84,43 @@
   grid-template-columns: 18px 1fr 36px 36px 18px;
   align-items: center;
   gap: 6px;
-  padding: 3px 2px;
+  padding: 4px 4px;
+  border-radius: 5px;
+  transition: background 0.1s ease;
+}
+
+.team-row:hover {
+  background: var(--surface-2);
 }
 
 .team-row-header {
-  color: #999;
-  font-size: 11px;
-  border-bottom: 1px solid #2a2a2a;
-  padding-bottom: 4px;
-  margin-bottom: 2px;
+  color: var(--text-faint);
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 6px;
+  margin-bottom: 3px;
+}
+
+.team-row-header:hover {
+  background: none;
 }
 
 .team-name {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  color: var(--text);
 }
 
 .gw-input {
   width: 34px;
-  background: #1c1c1c;
-  color: #eee;
-  border: 1px solid #333;
-  border-radius: 3px;
+  background: var(--surface-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
   padding: 2px;
   font-size: 12px;
   -moz-appearance: textfield;
@@ -107,13 +133,18 @@
 }
 
 .gw-input:disabled {
-  opacity: 0.4;
+  opacity: 0.35;
+}
+
+.gw-input:focus {
+  outline: none;
+  border-color: var(--accent);
 }
 
 input[type="number"] {
-  background: #1c1c1c;
-  color: #eee;
-  border: 1px solid #333;
-  border-radius: 3px;
-  padding: 2px 4px;
+  background: var(--surface-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 3px 5px;
 }

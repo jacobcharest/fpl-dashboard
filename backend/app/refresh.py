@@ -330,7 +330,11 @@ def backfill_season(conn, season_id: str) -> dict:
         rows_to_insert,
     )
 
-    cur.execute("UPDATE seasons SET backfilled = 1 WHERE id = ?", (season_id,))
+    # Reaching here means real data was successfully fetched from the source archive, so any
+    # earlier placeholder (see create_placeholder_season.py) is no longer one - this is what
+    # closes the loop once a not-yet-started season actually begins and "Fetch New Data" is
+    # clicked again.
+    cur.execute("UPDATE seasons SET backfilled = 1, is_placeholder = 0 WHERE id = ?", (season_id,))
     conn.commit()
 
     return {

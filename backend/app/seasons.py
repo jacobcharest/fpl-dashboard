@@ -9,6 +9,10 @@ SEASONS = [
     {"id": "2023-24", "label": "2023/24", "start_date": "2023-08-01", "end_date": "2024-05-31"},
     {"id": "2024-25", "label": "2024/25", "start_date": "2024-08-01", "end_date": "2025-05-31"},
     {"id": "2025-26", "label": "2025/26", "start_date": "2025-08-01", "end_date": "2026-05-31"},
+    # Not started yet as of writing. Populated as a placeholder by
+    # scripts/create_placeholder_season.py (2025/26 results + real 2026/27 prices) until the
+    # source archive has real data for it - see that script's docstring.
+    {"id": "2026-27", "label": "2026/27", "start_date": "2026-08-01", "end_date": "2027-05-31"},
 ]
 
 # Stat families that don't exist for every season (see DESIGN.md for source verification).

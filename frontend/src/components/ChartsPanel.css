@@ -1,32 +1,36 @@
 .charts-panel {
-  margin-top: 24px;
-  border-top: 1px solid #2a2a2a;
-  padding-top: 12px;
+  margin-top: 28px;
+  border-top: 1px solid var(--border);
+  padding-top: 18px;
 }
 
 .charts-panel-header {
   display: flex;
   align-items: center;
   gap: 16px;
-  margin-bottom: 12px;
+  margin-bottom: 16px;
 }
 
 .charts-panel-header h2 {
-  font-size: 15px;
+  font-size: 16px;
+  font-weight: 700;
   margin: 0;
-  color: #eee;
+  color: var(--text);
 }
 
 .charts-panel-header button {
-  background: #1c1c1c;
-  color: #eee;
-  border: 1px solid #333;
-  border-radius: 4px;
-  padding: 5px 10px;
+  background: var(--accent-2-soft);
+  color: var(--accent-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  padding: 6px 12px;
   font-size: 13px;
+  font-weight: 600;
   cursor: pointer;
+  transition: background 0.15s ease, transform 0.1s ease;
 }
 
 .charts-panel-header button:hover {
-  background: #2a2a2a;
+  background: rgba(139, 92, 246, 0.26);
+  transform: translateY(-1px);
 }
