@@ -31,6 +31,7 @@ export const PLAYER_STATS: StatDef[] = [
   { key: "price", label: "Price", seriesEligible: false },
   { key: "minutes", label: "Minutes", seriesEligible: false },
   { key: "value", label: "Value (pts per price step)", seriesEligible: false },
+  { key: "defensive_contribution_hit_rate", label: "DC Hit Rate %", seriesEligible: false },
 ];
 
 // Team stats: goals/xG are series-eligible (per-gameweek from fixtures/player xG sums);

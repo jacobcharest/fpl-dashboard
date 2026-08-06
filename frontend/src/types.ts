@@ -69,6 +69,7 @@ export interface PlayerRow {
   clean_sheets: number;
   expected_goals_conceded: number;
   defensive_contribution: number | null;
+  defensive_contribution_hit_rate: number | null;
   bonus: number;
   bps: number;
   saves: number;

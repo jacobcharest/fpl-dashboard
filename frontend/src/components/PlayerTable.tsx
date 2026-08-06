@@ -8,6 +8,7 @@ import { PositionFilter } from "./PositionFilter";
 const helper = createColumnHelper<PlayerRow>();
 
 const fmt = (digits: number) => (v: number | null) => (v == null ? "-" : v.toFixed(digits));
+const fmtPct = (v: number | null) => (v == null ? "-" : `${v.toFixed(1)}%`);
 
 function buildColumns(per90: boolean): ColumnDef<PlayerRow, any>[] {
   return [
@@ -26,6 +27,10 @@ function buildColumns(per90: boolean): ColumnDef<PlayerRow, any>[] {
     helper.accessor("clean_sheets", { header: "CS", cell: (i) => fmt(2)(i.getValue()) }),
     helper.accessor("expected_goals_conceded", { header: "xGA", cell: (i) => fmt(2)(i.getValue()) }),
     helper.accessor("defensive_contribution", { header: "Def. Contr.", cell: (i) => fmt(2)(i.getValue()) }),
+    helper.accessor("defensive_contribution_hit_rate", {
+      header: "DC Hit Rate",
+      cell: (i) => fmtPct(i.getValue()),
+    }),
     helper.accessor("bonus", { header: "Bonus", cell: (i) => fmt(2)(i.getValue()) }),
     helper.accessor("bps", { header: "BPS", cell: (i) => fmt(2)(i.getValue()) }),
     helper.accessor("saves", { header: "Saves", cell: (i) => fmt(2)(i.getValue()) }),
@@ -50,6 +55,7 @@ const FILTERABLE_COLUMNS = [
   "clean_sheets",
   "expected_goals_conceded",
   "defensive_contribution",
+  "defensive_contribution_hit_rate",
   "bonus",
   "bps",
   "saves",

@@ -62,9 +62,9 @@ fixture). Team standings, xG aggregates, per-90 conversion, and filtered stats a
 ## Table columns
 
 **Player table**: name (frozen), position, price, total points, minutes, goals, xG, assists, xA,
-xGI, clean sheets, xGA, defensive contributions, bonus points, BPS, saves, yellow cards, red
-cards, influence, creativity, threat, ICT index (the last 8 added post-launch per user request -
-see "Post-launch fixes" below).
+xGI, clean sheets, xGA, defensive contributions, defensive contribution hit rate %, bonus
+points, BPS, saves, yellow cards, red cards, influence, creativity, threat, ICT index (everything
+past "bonus points" added post-launch per user request - see "Post-launch fixes" below).
 
 **Team table**: name (frozen), table place, goals, xG, goals against, xGA, goal difference,
 opponent xG, opponent xGA.
@@ -305,3 +305,22 @@ arbitrary jump. Steps make step 1 the neutral baseline.
   it silently won on even rows - the same class of bug the `:hover` state had already worked
   around explicitly, but the striping rule was added later (Phase 5 visual redesign) without
   the equivalent override. Fixed with a matching `tr:nth-child(even) td.sticky-col` rule.
+- **`run.sh` auto-opens the browser**: polls `localhost:5173` after starting both servers and
+  opens it in the default browser (macOS `open`, `xdg-open` fallback) once it actually responds,
+  instead of requiring a manual copy-paste of the URL.
+
+## Post-launch fixes, round 3
+
+- **Defensive contribution hit rate**: a new player column, `DC Hit Rate`, placed right after
+  `Def. Contr.` - the % of games played (minutes > 0) in which the player met their position's
+  defensive contribution points threshold (10 combined defensive actions for DEF, 12 for MID/FWD
+  - the actual 2025/26 FPL scoring rule; GKs aren't part of this scheme at all, so their hit
+  rate is `null`/`-`, not a misleading 0%). Backend: `_defensive_contribution_hit_rate()` in
+  `queries.py`, computed from the same already-filtered `rows` used for the main aggregation
+  (so it automatically respects the team-window/opponent/starts-only filters, same as
+  everything else) and merged into `agg` before the per-90 conversion, since it's already a
+  rate and per-90 doesn't apply to it. Exposed in the chart builder as an aggregate-only stat
+  (not series-eligible - "hit rate" isn't meaningful for a single gameweek).
+  Verified by hand against the raw per-gameweek data for both thresholds: Gabriel (DEF, 32
+  games played, 11 hits at >=10) = 34.4%, Rice (MID, 36 games played, 14 hits at >=12) = 38.9%
+  - both matched the API exactly.

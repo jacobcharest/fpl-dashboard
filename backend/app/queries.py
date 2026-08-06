@@ -42,6 +42,11 @@ PLAYER_STAT_COLUMNS = [
     "ict_index",
 ]
 
+# Defensive contribution points (introduced 2025/26): a defender needs 10+ combined defensive
+# actions (clearances/blocks/interceptions/tackles) in a match, a midfielder or forward needs
+# 12+ (same plus recoveries). Goalkeepers aren't part of this scheme at all.
+DC_THRESHOLD = {"DEF": 10, "MID": 12, "FWD": 12}
+
 
 @dataclass
 class TeamRange:
@@ -130,6 +135,21 @@ def _rows_in_team_windows(player_gw: pd.DataFrame, teams: list[TeamRange]) -> pd
     return merged.drop(columns=["start_gw", "end_gw"])
 
 
+def _defensive_contribution_hit_rate(rows: pd.DataFrame, players: pd.DataFrame) -> pd.DataFrame:
+    """% of games played (minutes > 0) in which the player met their position's defensive
+    contribution points threshold. Goalkeepers are excluded entirely (return NaN, not 0%),
+    not just always-missing the threshold - they're not part of this scoring rule at all."""
+    played = rows[rows["minutes"] > 0].merge(players[["player_code", "position"]], on="player_code", how="left")
+    played = played.assign(threshold=played["position"].map(DC_THRESHOLD))
+    played = played[played["threshold"].notna()]
+    if played.empty:
+        return pd.DataFrame(columns=["player_code", "defensive_contribution_hit_rate"])
+    hit = played["defensive_contribution"] >= played["threshold"]
+    result = played.assign(hit=hit).groupby("player_code")["hit"].agg(games_played="size", hits="sum").reset_index()
+    result["defensive_contribution_hit_rate"] = (result["hits"] / result["games_played"] * 100).round(1)
+    return result[["player_code", "defensive_contribution_hit_rate"]]
+
+
 def query_players(conn, filters: TableFilters, per90: bool, starts_only: bool) -> list[dict]:
     player_gw, _fixtures, teams, players = load_season_frames(conn, filters.season_id)
 
@@ -149,6 +169,8 @@ def query_players(conn, filters: TableFilters, per90: bool, starts_only: bool) -
         **{c: (c, "sum") for c in PLAYER_STAT_COLUMNS},
     ).reset_index()
 
+    agg = agg.merge(_defensive_contribution_hit_rate(rows, players), on="player_code", how="left")
+
     if per90:
         for c in PLAYER_STAT_COLUMNS:
             agg[c] = (agg[c] / agg["minutes"] * 90).where(agg["minutes"] > 0)
@@ -163,7 +185,11 @@ def query_players(conn, filters: TableFilters, per90: bool, starts_only: bool) -
     agg = _apply_numeric_filters(agg, filters.filters)
     agg = _apply_sort(agg, filters.sort, default_column="total_points")
 
-    columns = ["player_code", "web_name", "team_name", "position", "price", "minutes"] + PLAYER_STAT_COLUMNS
+    columns = (
+        ["player_code", "web_name", "team_name", "position", "price", "minutes"]
+        + PLAYER_STAT_COLUMNS
+        + ["defensive_contribution_hit_rate"]
+    )
     return _records(agg[columns])
 
 
