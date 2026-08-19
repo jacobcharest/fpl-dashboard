@@ -15,6 +15,7 @@ from app.queries import (
     query_series,
     query_teams,
 )
+from app.my_team import get_my_team, sync_my_team
 from app.refresh import backfill_season, seed_seasons
 
 
@@ -35,6 +36,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+class MyTeamSyncRequest(BaseModel):
+    entry_id: int
 
 
 class TeamRangeIn(BaseModel):
@@ -153,3 +158,28 @@ def refresh_season(season_id: str):
     finally:
         conn.close()
     return summary
+
+
+@app.get("/api/my-team/{season_id}")
+def my_team(season_id: str):
+    """The stored squad for this season, or null if none has been synced yet."""
+    conn = get_connection()
+    try:
+        return get_my_team(conn, season_id)
+    finally:
+        conn.close()
+
+
+@app.post("/api/my-team/{season_id}/sync")
+def my_team_sync(season_id: str, req: MyTeamSyncRequest):
+    """Pulls the user's squad from the live FPL API. Before the season's first kickoff this can
+    only validate and store the team id (picks aren't public yet) - see app/my_team.py."""
+    conn = get_connection()
+    try:
+        return sync_my_team(conn, season_id, req.entry_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Couldn't reach the FPL API: {e}")
+    finally:
+        conn.close()

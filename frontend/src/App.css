@@ -136,3 +136,31 @@
   flex: 1;
   min-width: 0;
 }
+
+.my-team-control input {
+  width: 110px;
+  margin-left: 8px;
+}
+
+.sync-btn {
+  background: var(--surface-3);
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  align-self: center;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.sync-btn:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.sync-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}

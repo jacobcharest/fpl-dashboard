@@ -47,6 +47,18 @@ No action needed once the season actually starts — the normal "Fetch New Data"
 automatically replaces the placeholder with real data and clears the flag the first time it
 succeeds.
 
+## Highlight your own team
+
+Enter your FPL team id in the **"My team id"** box in the toolbar and press **"Sync My Team"** to
+mark your 15 players on the player table (captain and vice-captain get a `C`/`V` badge; bench
+players are dimmed). Your team id is the number in your team's URL, e.g.
+`fantasy.premierleague.com/entry/1234567/event/1`.
+
+This only ever reads FPL's public API - it never asks for, stores, or sends your FPL login. That
+has one consequence worth knowing: **a squad only becomes readable once its gameweek kicks off.**
+Syncing before then saves and validates your team id and tells you when picks unlock; press the
+same button again after kickoff to pull the squad. Re-sync whenever you make transfers.
+
 ## Run
 
 ```bash

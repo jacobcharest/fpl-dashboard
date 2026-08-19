@@ -91,6 +91,54 @@
   background: var(--surface);
 }
 
+/* The user's own synced squad (see app/my_team.py). Placement matters: this rule, the zebra
+   rule above, and the hover rule below all have *identical* specificity, so source order alone
+   decides the winner - same trap as the zebra/sticky-col fix above. Sitting here means the
+   highlight beats the stripe but still yields to hover. */
+.data-table tbody tr.my-team td {
+  background: var(--accent-soft);
+}
+
+/* The sticky column needs an opaque colour, not the translucent token: anything see-through
+   lets horizontally scrolled cells bleed through it. These are accent-soft pre-blended
+   against --surface. */
+.data-table tbody tr.my-team td.sticky-col {
+  background: #12342e;
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+/* Bench (slots 12-15): same squad, dialled down so the starting XI reads first. */
+.data-table tbody tr.my-team-bench td {
+  background: rgba(0, 229, 138, 0.06);
+}
+
+.data-table tbody tr.my-team-bench td.sticky-col {
+  background: #142325;
+  box-shadow: inset 3px 0 0 var(--accent-dim);
+}
+
+.armband {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 0 5px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 15px;
+  vertical-align: middle;
+}
+
+.armband-c {
+  background: var(--accent);
+  color: #04150d;
+}
+
+.armband-v {
+  background: var(--surface-3);
+  color: var(--text-dim);
+  border: 1px solid var(--border-strong);
+}
+
 .data-table tbody tr:hover td {
   background: var(--surface-2);
 }

@@ -118,3 +118,33 @@ export interface SeriesPoint {
   round: number;
   [stat: string]: number | string | null;
 }
+
+export interface SquadPick {
+  player_code: number;
+  squad_slot: number; // FPL's 1-15 ordering; 1-11 start, 12-15 bench
+  is_captain: number;
+  is_vice_captain: number;
+  multiplier: number | null;
+}
+
+export interface MyTeam {
+  entry_id: number;
+  entry_name: string | null;
+  manager_name: string | null;
+  synced_event: number | null; // null until a gameweek has started and picks became public
+  picks: SquadPick[];
+}
+
+// The sync endpoint reports on what it did (a pick *count*), rather than echoing the squad -
+// the squad itself is read back via getMyTeam.
+export interface MyTeamSyncResult {
+  season_id: string;
+  entry_id: number;
+  entry_name: string | null;
+  manager_name: string | null;
+  status: "synced" | "pending_kickoff";
+  synced_event: number | null;
+  picks: number;
+  unmatched: string[]; // squad members with no row on this season's board
+  message: string;
+}

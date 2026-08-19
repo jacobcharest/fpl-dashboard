@@ -87,3 +87,24 @@ CREATE TABLE IF NOT EXISTS player_gw_stats (
 CREATE INDEX IF NOT EXISTS idx_pgs_player_round ON player_gw_stats(season_id, player_code, round);
 CREATE INDEX IF NOT EXISTS idx_pgs_team_round ON player_gw_stats(season_id, team_code, round);
 CREATE INDEX IF NOT EXISTS idx_pgs_opponent_round ON player_gw_stats(season_id, opponent_team_code, round);
+
+-- The user's own FPL squad, synced from the live FPL API (see app/my_team.py) so it can be
+-- highlighted on the player board. One squad per season - this is a single-user local app.
+CREATE TABLE IF NOT EXISTS manager_entry (
+    season_id    TEXT PRIMARY KEY REFERENCES seasons(id),
+    entry_id     INTEGER NOT NULL,   -- the manager's FPL team id (from their team URL)
+    entry_name   TEXT,
+    manager_name TEXT,
+    synced_event INTEGER,            -- NULL until a gameweek has started and picks become public
+    synced_at    TEXT
+);
+
+CREATE TABLE IF NOT EXISTS manager_squad (
+    season_id       TEXT NOT NULL REFERENCES seasons(id),
+    player_code     INTEGER NOT NULL,  -- stable code, resolved via the live bootstrap
+    squad_slot      INTEGER NOT NULL,  -- FPL's own 1-15 ordering; 1-11 start, 12-15 bench
+    is_captain      INTEGER NOT NULL DEFAULT 0,
+    is_vice_captain INTEGER NOT NULL DEFAULT 0,
+    multiplier      INTEGER,
+    PRIMARY KEY (season_id, player_code)
+);

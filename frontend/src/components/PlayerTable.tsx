@@ -1,6 +1,6 @@
 import { createColumnHelper, type ColumnDef } from "@tanstack/react-table";
 import { useMemo } from "react";
-import type { NumericFilter, PlayerRow, SortSpec } from "../types";
+import type { NumericFilter, PlayerRow, SortSpec, SquadPick } from "../types";
 import { DataTable } from "./DataTable";
 import { PositionBadge } from "./PositionBadge";
 import { PositionFilter } from "./PositionFilter";
@@ -10,9 +10,21 @@ const helper = createColumnHelper<PlayerRow>();
 const fmt = (digits: number) => (v: number | null) => (v == null ? "-" : v.toFixed(digits));
 const fmtPct = (v: number | null) => (v == null ? "-" : `${v.toFixed(1)}%`);
 
-function buildColumns(per90: boolean): ColumnDef<PlayerRow, any>[] {
+function buildColumns(per90: boolean, squad: Map<number, SquadPick>): ColumnDef<PlayerRow, any>[] {
   return [
-    helper.accessor("web_name", { header: "Player", cell: (i) => i.getValue() }),
+    helper.accessor("web_name", {
+      header: "Player",
+      cell: (i) => {
+        const pick = squad.get(i.row.original.player_code);
+        const armband = pick?.is_captain ? "C" : pick?.is_vice_captain ? "V" : null;
+        return (
+          <>
+            {i.getValue()}
+            {armband && <span className={`armband armband-${armband.toLowerCase()}`}>{armband}</span>}
+          </>
+        );
+      },
+    }),
     helper.accessor("position", { header: "Pos", cell: (i) => <PositionBadge position={i.getValue()} /> }),
     helper.accessor("price", { header: "Price", cell: (i) => `£${i.getValue().toFixed(1)}` }),
     // Per-90 points are a fractional rate (e.g. 7.4), not a whole count, so they need a decimal
@@ -76,6 +88,8 @@ interface Props {
   positions: string[] | null;
   onPositionsChange: (positions: string[] | null) => void;
   per90: boolean;
+  /** The user's synced squad, keyed by player_code. Empty when nothing is synced. */
+  squad: Map<number, SquadPick>;
 }
 
 export function PlayerTable({
@@ -87,8 +101,9 @@ export function PlayerTable({
   positions,
   onPositionsChange,
   per90,
+  squad,
 }: Props) {
-  const columns = useMemo(() => buildColumns(per90), [per90]);
+  const columns = useMemo(() => buildColumns(per90, squad), [per90, squad]);
 
   return (
     <DataTable
@@ -102,6 +117,12 @@ export function PlayerTable({
       onFiltersChange={onFiltersChange}
       customFilterColumns={{
         position: <PositionFilter selected={positions} onChange={onPositionsChange} />,
+      }}
+      getRowClassName={(row) => {
+        const pick = squad.get(row.player_code);
+        if (!pick) return undefined;
+        // Slots 12-15 are the bench - still your squad, but dimmed so the XI stands out.
+        return pick.squad_slot > 11 ? "my-team my-team-bench" : "my-team";
       }}
     />
   );

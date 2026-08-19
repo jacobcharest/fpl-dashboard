@@ -324,3 +324,47 @@ arbitrary jump. Steps make step 1 the neutral baseline.
   Verified by hand against the raw per-gameweek data for both thresholds: Gabriel (DEF, 32
   games played, 11 hits at >=10) = 34.4%, Rice (MID, 36 games played, 14 hits at >=12) = 38.9%
   - both matched the API exactly.
+
+## Post-launch fixes, round 4
+
+- **"My Team" sync + board highlighting**: a team-id box and "Sync My Team" button next to
+  "Fetch New Data" pull the user's own squad from the live FPL API and highlight those 15 players
+  in the player table (accent tint + an accent left edge on the frozen name column, a `C`/`V`
+  armband badge next to the captain and vice-captain, and a dimmed variant for bench slots 12-15
+  so the starting XI reads first). Backend: `app/my_team.py`, `POST /api/my-team/{season_id}/sync`
+  and `GET /api/my-team/{season_id}`, storing into two new tables (`manager_entry`,
+  `manager_squad` - one squad per season, since this is a single-user local app).
+  Three things drove the design:
+  - **There is no unauthenticated way to read a squad before its gameweek kicks off.**
+    `/api/my-team/{entry}/` (what the site's own "My Team" page uses) is a 403 without a logged-in
+    session, and the public `/api/entry/{entry}/event/{gw}/picks/` 404s until that gameweek starts.
+    Rather than failing, `sync_my_team` validates and stores the team id against the public
+    `/api/entry/{entry}/` endpoint (which *is* available immediately) and returns
+    `status: "pending_kickoff"` with a message saying when picks unlock; the same button then
+    completes the sync once the gameweek starts, with nothing to re-type. Deliberately no
+    credential handling anywhere in this path.
+  - **element id -> player_code must be resolved via the live bootstrap, not the database.** Picks
+    reference `element`, a per-season id. Joining on `player_season.season_element_id` is the
+    obvious move and is *wrong* for a placeholder season, whose element ids were cloned wholesale
+    from the previous season by `create_placeholder_season.py`. The bootstrap carries both `id` and
+    the stable `code` for the live season, so it's the only trustworthy mapping. (Same family of
+    trap as the `create_placeholder_season.py` column-list bug in round 2 - anything keyed on a
+    season-specific id needs checking against the placeholder path.)
+  - **Squad members with no row on the board are reported, not silently dropped.** A placeholder
+    season only contains last season's player set, so new signings and promoted-club players are
+    genuinely absent (131 of the live 592 at time of writing). `sync` returns them by name in
+    `unmatched` and the UI appends them to the status message, rather than quietly highlighting 12
+    of 15 and leaving the user to notice.
+  Syncing is rejected with a clear 400 for any season other than the live one - the FPL API doesn't
+  serve historical squads, so a past-season "sync" could only ever produce a misleading result.
+  Verified: the pre-kickoff path end-to-end in-browser (team id stored, correct "picks unlock when
+  Gameweek 1 kicks off" message); the picks-mapping path by simulating a started gameweek with 15
+  real element ids, of which 14 mapped to board rows and the 1 with no row (Tzolis) was correctly
+  reported as unmatched, with captain/vice flags and bench slots all stored correctly; and both
+  rejection paths (past season, nonexistent team id).
+  One CSS trap avoided by construction: the highlight rule, the zebra-striping rule and the hover
+  rule all have *identical* specificity, so source order alone decides the winner. The highlight is
+  therefore placed after the stripe and before hover - verified by reading computed backgrounds on
+  both odd and even highlighted rows (accent, not stripe) and by asserting the CSSOM rule order is
+  `zebra < my-team < hover`. This is the third time this table's zebra rule has caused trouble;
+  anything adding a row-level background here needs the same check.
