@@ -399,6 +399,10 @@ arbitrary jump. Steps make step 1 the neutral baseline.
     conditionally - so the default view isn't two columns of dashes.
   - Projections are merged *after* the per-90 conversion, same as the DC hit rate: a projected
     total is already forward-looking and per-90 doesn't apply to it.
+  - **xP sums over the horizon but xMins averages.** Total expected points across the window is
+    exactly the quantity you want; total expected *minutes* is not - it produced a 524 in the
+    table, which reads as nonsense against the 0-90 scale the stat is known by. Averaging keeps
+    it legible as the per-match availability signal it actually is.
   Also added `scripts/fplreview_export.js`, since FPL Review gates CSV download behind premium
   while still serving the projections themselves to free users - the script rebuilds the same CSV
   from the page so the free tier is usable without a subscription.

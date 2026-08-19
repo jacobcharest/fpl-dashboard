@@ -155,14 +155,17 @@ def _defensive_contribution_hit_rate(rows: pd.DataFrame, players: pd.DataFrame) 
 
 
 def _projection_totals(conn, filters: TableFilters) -> pd.DataFrame | None:
-    """Projected points/minutes per player, summed over the requested gameweek horizon.
+    """Projected points (summed) and expected minutes (averaged) over the requested horizon.
 
     Returns None when no horizon is requested, so the projection columns stay absent rather
     than appearing as a column of dashes."""
     if not (filters.projection_source and filters.projection_start_gw and filters.projection_end_gw):
         return None
     rows = pd.read_sql_query(
-        """SELECT player_code, SUM(xp) AS xp, SUM(xmins) AS xmins
+        # xP sums (total points expected over the window) but xMins averages: expected minutes
+        # is a per-match availability signal, and a summed 524 reads as nonsense next to the
+        # 0-90 scale everyone knows it by.
+        """SELECT player_code, SUM(xp) AS xp, AVG(xmins) AS xmins
            FROM player_projections
            WHERE season_id = ? AND source = ? AND round BETWEEN ? AND ?
            GROUP BY player_code""",
