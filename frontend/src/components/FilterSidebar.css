@@ -148,3 +148,14 @@ input[type="number"] {
   border-radius: 4px;
   padding: 3px 5px;
 }
+
+.proj-source {
+  width: 100%;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 5px 7px;
+  font-size: 12px;
+  margin-bottom: 6px;
+}

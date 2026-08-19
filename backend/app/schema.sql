@@ -87,3 +87,39 @@ CREATE TABLE IF NOT EXISTS player_gw_stats (
 CREATE INDEX IF NOT EXISTS idx_pgs_player_round ON player_gw_stats(season_id, player_code, round);
 CREATE INDEX IF NOT EXISTS idx_pgs_team_round ON player_gw_stats(season_id, team_code, round);
 CREATE INDEX IF NOT EXISTS idx_pgs_opponent_round ON player_gw_stats(season_id, opponent_team_code, round);
+
+-- The user's own FPL squad, synced from the live FPL API (see app/my_team.py) so it can be
+-- highlighted on the player board. One squad per season - this is a single-user local app.
+CREATE TABLE IF NOT EXISTS manager_entry (
+    season_id    TEXT PRIMARY KEY REFERENCES seasons(id),
+    entry_id     INTEGER NOT NULL,   -- the manager's FPL team id (from their team URL)
+    entry_name   TEXT,
+    manager_name TEXT,
+    synced_event INTEGER,            -- NULL until a gameweek has started and picks become public
+    synced_at    TEXT
+);
+
+CREATE TABLE IF NOT EXISTS manager_squad (
+    season_id       TEXT NOT NULL REFERENCES seasons(id),
+    player_code     INTEGER NOT NULL,  -- stable code, resolved via the live bootstrap
+    squad_slot      INTEGER NOT NULL,  -- FPL's own 1-15 ordering; 1-11 start, 12-15 bench
+    is_captain      INTEGER NOT NULL DEFAULT 0,
+    is_vice_captain INTEGER NOT NULL DEFAULT 0,
+    multiplier      INTEGER,
+    PRIMARY KEY (season_id, player_code)
+);
+
+-- Forward-looking expected-points projections, imported from an external model
+-- (see app/projections.py). Keyed per gameweek so any horizon can be summed at query time,
+-- and per source so two models can be held side by side and compared.
+CREATE TABLE IF NOT EXISTS player_projections (
+    season_id   TEXT NOT NULL REFERENCES seasons(id),
+    player_code INTEGER NOT NULL,   -- stable code, resolved from the live bootstrap on import
+    round       INTEGER NOT NULL,   -- gameweek this projection is for
+    source      TEXT NOT NULL,      -- e.g. 'fplreview'
+    xp          REAL,               -- projected FPL points
+    xmins       REAL,               -- projected minutes; the availability signal, often the point
+    imported_at TEXT,
+    PRIMARY KEY (season_id, player_code, round, source)
+);
+CREATE INDEX IF NOT EXISTS idx_proj_round ON player_projections(season_id, source, round);

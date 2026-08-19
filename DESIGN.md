@@ -324,3 +324,91 @@ arbitrary jump. Steps make step 1 the neutral baseline.
   Verified by hand against the raw per-gameweek data for both thresholds: Gabriel (DEF, 32
   games played, 11 hits at >=10) = 34.4%, Rice (MID, 36 games played, 14 hits at >=12) = 38.9%
   - both matched the API exactly.
+
+## Post-launch fixes, round 4
+
+- **"My Team" sync + board highlighting**: a team-id box and "Sync My Team" button next to
+  "Fetch New Data" pull the user's own squad from the live FPL API and highlight those 15 players
+  in the player table (accent tint + an accent left edge on the frozen name column, a `C`/`V`
+  armband badge next to the captain and vice-captain, and a dimmed variant for bench slots 12-15
+  so the starting XI reads first). Backend: `app/my_team.py`, `POST /api/my-team/{season_id}/sync`
+  and `GET /api/my-team/{season_id}`, storing into two new tables (`manager_entry`,
+  `manager_squad` - one squad per season, since this is a single-user local app).
+  Three things drove the design:
+  - **There is no unauthenticated way to read a squad before its gameweek kicks off.**
+    `/api/my-team/{entry}/` (what the site's own "My Team" page uses) is a 403 without a logged-in
+    session, and the public `/api/entry/{entry}/event/{gw}/picks/` 404s until that gameweek starts.
+    Rather than failing, `sync_my_team` validates and stores the team id against the public
+    `/api/entry/{entry}/` endpoint (which *is* available immediately) and returns
+    `status: "pending_kickoff"` with a message saying when picks unlock; the same button then
+    completes the sync once the gameweek starts, with nothing to re-type. Deliberately no
+    credential handling anywhere in this path.
+  - **element id -> player_code must be resolved via the live bootstrap, not the database.** Picks
+    reference `element`, a per-season id. Joining on `player_season.season_element_id` is the
+    obvious move and is *wrong* for a placeholder season, whose element ids were cloned wholesale
+    from the previous season by `create_placeholder_season.py`. The bootstrap carries both `id` and
+    the stable `code` for the live season, so it's the only trustworthy mapping. (Same family of
+    trap as the `create_placeholder_season.py` column-list bug in round 2 - anything keyed on a
+    season-specific id needs checking against the placeholder path.)
+  - **Squad members with no row on the board are reported, not silently dropped.** A placeholder
+    season only contains last season's player set, so new signings and promoted-club players are
+    genuinely absent (131 of the live 592 at time of writing). `sync` returns them by name in
+    `unmatched` and the UI appends them to the status message, rather than quietly highlighting 12
+    of 15 and leaving the user to notice.
+  Syncing is rejected with a clear 400 for any season other than the live one - the FPL API doesn't
+  serve historical squads, so a past-season "sync" could only ever produce a misleading result.
+  Verified: the pre-kickoff path end-to-end in-browser (team id stored, correct "picks unlock when
+  Gameweek 1 kicks off" message); the picks-mapping path by simulating a started gameweek with 15
+  real element ids, of which 14 mapped to board rows and the 1 with no row (Tzolis) was correctly
+  reported as unmatched, with captain/vice flags and bench slots all stored correctly; and both
+  rejection paths (past season, nonexistent team id).
+  One CSS trap avoided by construction: the highlight rule, the zebra-striping rule and the hover
+  rule all have *identical* specificity, so source order alone decides the winner. The highlight is
+  therefore placed after the stripe and before hover - verified by reading computed backgrounds on
+  both odd and even highlighted rows (accent, not stripe) and by asserting the CSSOM rule order is
+  `zebra < my-team < hover`. This is the third time this table's zebra rule has caused trouble;
+  anything adding a row-level background here needs the same check.
+
+## Post-launch fixes, round 5
+
+- **Projections import**: the dashboard was entirely backward-looking, which has a specific and
+  costly blind spot - historical points cannot see who is currently injured or benched. (Found the
+  hard way: a transfer target with 159 points and 3,413 minutes last season turned out to have 4
+  expected minutes this week.) So external expected-points models can now be imported and shown
+  alongside the historical stats: `app/projections.py`, `scripts/import_projections.py`,
+  `POST /api/projections/{season}/import`, `GET /api/projections/{season}`, and a new
+  `player_projections` table.
+  Design decisions worth recording:
+  - **Stored per (player, gameweek, source), not as a single total.** Per-gameweek rows mean the
+    horizon is a query-time choice - the sidebar's Projections section re-sums GW1-4 vs GW1-2
+    without re-importing - and the `source` column lets two models sit side by side for
+    comparison rather than one overwriting the other. This matters because horizon length is a
+    real modelling decision, not a display preference: short windows are dominated by fixture
+    swings, long ones by model decay.
+  - **The CSV parser sniffs layout instead of pinning to one vendor.** Providers disagree on
+    column names and most ship a *wide* layout (`1_Pts`, `2_Pts`, ...) rather than one row per
+    gameweek, so `parse_csv` accepts long or wide and identifies the gameweek columns by regex.
+    Pinning to FPL Review's exact format would break on the next source.
+  - **Unmatched and ambiguous players are reported, never dropped.** Projections identify players
+    by name, and names collide every season (Muñoz, Gomez, Anderson, Davis all had two claimants
+    in 2026/27). Resolution goes through the live bootstrap on `web_name` + team where a team
+    column exists; a name that stays ambiguous is listed in the response rather than guessed at.
+    An import that quietly loses part of the squad is worse than one that fails loudly.
+  - **Projection columns are absent, not blank, when nothing is loaded.** `query_players` returns
+    `xp`/`xmins` only when a horizon is requested, and `PlayerTable` builds those column defs
+    conditionally - so the default view isn't two columns of dashes.
+  - Projections are merged *after* the per-90 conversion, same as the DC hit rate: a projected
+    total is already forward-looking and per-90 doesn't apply to it.
+  - **xP sums over the horizon but xMins averages.** Total expected points across the window is
+    exactly the quantity you want; total expected *minutes* is not - it produced a 524 in the
+    table, which reads as nonsense against the 0-90 scale the stat is known by. Averaging keeps
+    it legible as the per-match availability signal it actually is.
+  Also added `scripts/fplreview_export.js`, since FPL Review gates CSV download behind premium
+  while still serving the projections themselves to free users - the script rebuilds the same CSV
+  from the page so the free tier is usable without a subscription.
+  Verified end-to-end: 56 players × 4 gameweeks imported from real FPL Review data with values
+  matching the source exactly; long format, wide format, an unmatched name, an ambiguous name
+  (`Gomez` with no team column) and a garbage file all handled as intended; in-browser, the
+  horizon control re-sums correctly (GW1-2 totals differ from GW1-4 and match the API), sorting by
+  xP works, and toggling the source off removes both columns (25 → 23) and back again with no
+  console errors.

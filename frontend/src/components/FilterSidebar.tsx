@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { TeamFilterState } from "../types";
+import type { ProjectionSource, ProjectionSpec, TeamFilterState } from "../types";
 import "./FilterSidebar.css";
 
 interface Props {
@@ -11,6 +11,9 @@ interface Props {
   onPer90Change: (v: boolean) => void;
   startsOnly: boolean;
   onStartsOnlyChange: (v: boolean) => void;
+  projSources: ProjectionSource[];
+  projection: ProjectionSpec;
+  onProjectionChange: (p: ProjectionSpec) => void;
 }
 
 export function FilterSidebar({
@@ -22,6 +25,9 @@ export function FilterSidebar({
   onPer90Change,
   startsOnly,
   onStartsOnlyChange,
+  projSources,
+  projection,
+  onProjectionChange,
 }: Props) {
   const [globalStart, setGlobalStart] = useState(1);
   const [globalEnd, setGlobalEnd] = useState(maxGw);
@@ -51,6 +57,51 @@ export function FilterSidebar({
             <input type="checkbox" checked={startsOnly} onChange={(e) => onStartsOnlyChange(e.target.checked)} />
             Starts only
           </label>
+        </div>
+      )}
+
+      {showPlayerToggles && projSources.length > 0 && (
+        <div className="sidebar-section">
+          <div className="section-title">Projections</div>
+          <select
+            className="proj-source"
+            value={projection.source ?? ""}
+            onChange={(e) => {
+              const src = projSources.find((s) => s.source === e.target.value);
+              onProjectionChange(
+                src
+                  ? { source: src.source, start_gw: src.first_gw, end_gw: src.last_gw }
+                  : { ...projection, source: null }
+              );
+            }}
+          >
+            <option value="">Off</option>
+            {projSources.map((s) => (
+              <option key={s.source} value={s.source}>
+                {s.source} ({s.players} players, GW{s.first_gw}-{s.last_gw})
+              </option>
+            ))}
+          </select>
+          {projection.source && (
+            <div className="global-range">
+              <span>Horizon</span>
+              <input
+                type="number"
+                min={1}
+                max={maxGw}
+                value={projection.start_gw}
+                onChange={(e) => onProjectionChange({ ...projection, start_gw: Number(e.target.value) })}
+              />
+              <span>to</span>
+              <input
+                type="number"
+                min={1}
+                max={maxGw}
+                value={projection.end_gw}
+                onChange={(e) => onProjectionChange({ ...projection, end_gw: Number(e.target.value) })}
+              />
+            </div>
+          )}
         </div>
       )}
 

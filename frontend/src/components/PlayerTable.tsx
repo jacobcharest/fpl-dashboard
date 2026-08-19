@@ -1,18 +1,31 @@
 import { createColumnHelper, type ColumnDef } from "@tanstack/react-table";
 import { useMemo } from "react";
-import type { NumericFilter, PlayerRow, SortSpec } from "../types";
+import type { NumericFilter, PlayerRow, SortSpec, SquadPick } from "../types";
 import { DataTable } from "./DataTable";
 import { PositionBadge } from "./PositionBadge";
 import { PositionFilter } from "./PositionFilter";
 
 const helper = createColumnHelper<PlayerRow>();
 
-const fmt = (digits: number) => (v: number | null) => (v == null ? "-" : v.toFixed(digits));
-const fmtPct = (v: number | null) => (v == null ? "-" : `${v.toFixed(1)}%`);
+// Optional columns (projections) can be undefined as well as null, so both mean "no value".
+const fmt = (digits: number) => (v: number | null | undefined) => (v == null ? "-" : v.toFixed(digits));
+const fmtPct = (v: number | null | undefined) => (v == null ? "-" : `${v.toFixed(1)}%`);
 
-function buildColumns(per90: boolean): ColumnDef<PlayerRow, any>[] {
+function buildColumns(per90: boolean, squad: Map<number, SquadPick>, projLabel: string | null): ColumnDef<PlayerRow, any>[] {
   return [
-    helper.accessor("web_name", { header: "Player", cell: (i) => i.getValue() }),
+    helper.accessor("web_name", {
+      header: "Player",
+      cell: (i) => {
+        const pick = squad.get(i.row.original.player_code);
+        const armband = pick?.is_captain ? "C" : pick?.is_vice_captain ? "V" : null;
+        return (
+          <>
+            {i.getValue()}
+            {armband && <span className={`armband armband-${armband.toLowerCase()}`}>{armband}</span>}
+          </>
+        );
+      },
+    }),
     helper.accessor("position", { header: "Pos", cell: (i) => <PositionBadge position={i.getValue()} /> }),
     helper.accessor("price", { header: "Price", cell: (i) => `£${i.getValue().toFixed(1)}` }),
     // Per-90 points are a fractional rate (e.g. 7.4), not a whole count, so they need a decimal
@@ -40,6 +53,14 @@ function buildColumns(per90: boolean): ColumnDef<PlayerRow, any>[] {
     helper.accessor("creativity", { header: "Creativity", cell: (i) => fmt(2)(i.getValue()) }),
     helper.accessor("threat", { header: "Threat", cell: (i) => fmt(2)(i.getValue()) }),
     helper.accessor("ict_index", { header: "ICT Index", cell: (i) => fmt(2)(i.getValue()) }),
+    // Forward-looking, so they sit apart from the historical stats and are dropped entirely
+    // when no projections are loaded rather than showing a column of dashes.
+    ...(projLabel
+      ? [
+          helper.accessor("xp", { header: `xP ${projLabel}`, cell: (i) => fmt(1)(i.getValue()) }),
+          helper.accessor("xmins", { header: "xMins", cell: (i) => fmt(0)(i.getValue()) }),
+        ]
+      : []),
   ];
 }
 
@@ -65,6 +86,8 @@ const FILTERABLE_COLUMNS = [
   "creativity",
   "threat",
   "ict_index",
+  "xp",
+  "xmins",
 ];
 
 interface Props {
@@ -76,6 +99,10 @@ interface Props {
   positions: string[] | null;
   onPositionsChange: (positions: string[] | null) => void;
   per90: boolean;
+  /** The user's synced squad, keyed by player_code. Empty when nothing is synced. */
+  squad: Map<number, SquadPick>;
+  /** e.g. "GW1-4"; null hides the projection columns entirely. */
+  projLabel: string | null;
 }
 
 export function PlayerTable({
@@ -87,8 +114,10 @@ export function PlayerTable({
   positions,
   onPositionsChange,
   per90,
+  squad,
+  projLabel,
 }: Props) {
-  const columns = useMemo(() => buildColumns(per90), [per90]);
+  const columns = useMemo(() => buildColumns(per90, squad, projLabel), [per90, squad, projLabel]);
 
   return (
     <DataTable
@@ -102,6 +131,12 @@ export function PlayerTable({
       onFiltersChange={onFiltersChange}
       customFilterColumns={{
         position: <PositionFilter selected={positions} onChange={onPositionsChange} />,
+      }}
+      getRowClassName={(row) => {
+        const pick = squad.get(row.player_code);
+        if (!pick) return undefined;
+        // Slots 12-15 are the bench - still your squad, but dimmed so the XI stands out.
+        return pick.squad_slot > 11 ? "my-team my-team-bench" : "my-team";
       }}
     />
   );

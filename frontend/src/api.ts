@@ -3,6 +3,9 @@ import type {
   ChartSeriesRequest,
   PlayerRow,
   PlayerTableRequest,
+  MyTeam,
+  ProjectionSource,
+  MyTeamSyncResult,
   Season,
   SeriesPoint,
   TableRequest,
@@ -44,4 +47,16 @@ export interface RefreshSummary {
 
 export async function refreshSeason(seasonId: string): Promise<RefreshSummary> {
   return (await client.post(`/api/refresh/${seasonId}`, null, { timeout: 120_000 })).data;
+}
+
+export async function getMyTeam(seasonId: string): Promise<MyTeam | null> {
+  return (await client.get(`/api/my-team/${seasonId}`)).data;
+}
+
+export async function syncMyTeam(seasonId: string, entryId: number): Promise<MyTeamSyncResult> {
+  return (await client.post(`/api/my-team/${seasonId}/sync`, { entry_id: entryId }, { timeout: 30_000 })).data;
+}
+
+export async function getProjectionSources(seasonId: string): Promise<ProjectionSource[]> {
+  return (await client.get(`/api/projections/${seasonId}`)).data;
 }

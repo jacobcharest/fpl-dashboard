@@ -76,6 +76,10 @@ class TableFilters:
     filters: list[NumericFilter] = field(default_factory=list)
     sort: SortSpec | None = None
     positions: list[str] | None = None  # players only; None = no filter (all positions)
+    # Forward-looking projections (players only). None = don't join any; see app/projections.py.
+    projection_source: str | None = None
+    projection_start_gw: int | None = None
+    projection_end_gw: int | None = None
 
 
 def load_season_frames(conn, season_id: str):
@@ -150,6 +154,28 @@ def _defensive_contribution_hit_rate(rows: pd.DataFrame, players: pd.DataFrame) 
     return result[["player_code", "defensive_contribution_hit_rate"]]
 
 
+def _projection_totals(conn, filters: TableFilters) -> pd.DataFrame | None:
+    """Projected points (summed) and expected minutes (averaged) over the requested horizon.
+
+    Returns None when no horizon is requested, so the projection columns stay absent rather
+    than appearing as a column of dashes."""
+    if not (filters.projection_source and filters.projection_start_gw and filters.projection_end_gw):
+        return None
+    rows = pd.read_sql_query(
+        # xP sums (total points expected over the window) but xMins averages: expected minutes
+        # is a per-match availability signal, and a summed 524 reads as nonsense next to the
+        # 0-90 scale everyone knows it by.
+        """SELECT player_code, SUM(xp) AS xp, AVG(xmins) AS xmins
+           FROM player_projections
+           WHERE season_id = ? AND source = ? AND round BETWEEN ? AND ?
+           GROUP BY player_code""",
+        conn,
+        params=(filters.season_id, filters.projection_source,
+                filters.projection_start_gw, filters.projection_end_gw),
+    )
+    return rows if not rows.empty else None
+
+
 def query_players(conn, filters: TableFilters, per90: bool, starts_only: bool) -> list[dict]:
     player_gw, _fixtures, teams, players = load_season_frames(conn, filters.season_id)
 
@@ -175,6 +201,10 @@ def query_players(conn, filters: TableFilters, per90: bool, starts_only: bool) -
         for c in PLAYER_STAT_COLUMNS:
             agg[c] = (agg[c] / agg["minutes"] * 90).where(agg["minutes"] > 0)
 
+    projections = _projection_totals(conn, filters)
+    if projections is not None:
+        agg = agg.merge(projections, on="player_code", how="left")
+
     agg["price"] = agg["price"] / 10.0
     agg = agg.merge(players, on="player_code", how="left")
     agg = agg.merge(teams[["team_code", "name"]].rename(columns={"name": "team_name"}), on="team_code", how="left")
@@ -190,6 +220,8 @@ def query_players(conn, filters: TableFilters, per90: bool, starts_only: bool) -
         + PLAYER_STAT_COLUMNS
         + ["defensive_contribution_hit_rate"]
     )
+    if projections is not None:
+        columns += ["xp", "xmins"]
     return _records(agg[columns])
 
 

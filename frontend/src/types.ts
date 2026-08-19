@@ -49,6 +49,9 @@ export interface PlayerTableRequest extends TableRequest {
   per90: boolean;
   starts_only: boolean;
   positions: string[] | null;
+  projection_source?: string | null;
+  projection_start_gw?: number | null;
+  projection_end_gw?: number | null;
 }
 
 export const POSITIONS = ["GK", "DEF", "MID", "FWD"] as const;
@@ -79,6 +82,8 @@ export interface PlayerRow {
   creativity: number;
   threat: number;
   ict_index: number;
+  xp?: number | null;
+  xmins?: number | null;
 }
 
 export interface TeamRow {
@@ -117,4 +122,49 @@ export interface SeriesPoint {
   name: string;
   round: number;
   [stat: string]: number | string | null;
+}
+
+export interface ProjectionSource {
+  source: string;
+  players: number;
+  first_gw: number;
+  last_gw: number;
+  imported_at: string | null;
+}
+
+/** Horizon the player table sums projections over. null source = projections off. */
+export interface ProjectionSpec {
+  source: string | null;
+  start_gw: number;
+  end_gw: number;
+}
+
+export interface SquadPick {
+  player_code: number;
+  squad_slot: number; // FPL's 1-15 ordering; 1-11 start, 12-15 bench
+  is_captain: number;
+  is_vice_captain: number;
+  multiplier: number | null;
+}
+
+export interface MyTeam {
+  entry_id: number;
+  entry_name: string | null;
+  manager_name: string | null;
+  synced_event: number | null; // null until a gameweek has started and picks became public
+  picks: SquadPick[];
+}
+
+// The sync endpoint reports on what it did (a pick *count*), rather than echoing the squad -
+// the squad itself is read back via getMyTeam.
+export interface MyTeamSyncResult {
+  season_id: string;
+  entry_id: number;
+  entry_name: string | null;
+  manager_name: string | null;
+  status: "synced" | "pending_kickoff";
+  synced_event: number | null;
+  picks: number;
+  unmatched: string[]; // squad members with no row on this season's board
+  message: string;
 }

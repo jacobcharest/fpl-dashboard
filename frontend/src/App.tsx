@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import { getPlayerTable, getSeasonTeams, getSeasons, getTeamTable, refreshSeason } from "./api";
+import { getMyTeam, getPlayerTable, getProjectionSources, getSeasonTeams, getSeasons, getTeamTable, refreshSeason, syncMyTeam } from "./api";
 import { ChartsPanel } from "./components/ChartsPanel";
 import { FilterSidebar } from "./components/FilterSidebar";
 import { PlayerTable } from "./components/PlayerTable";
 import { TeamTable } from "./components/TeamTable";
-import type { NumericFilter, PlayerRow, Season, SortSpec, TeamFilterState, TeamRow } from "./types";
+import type { MyTeam, NumericFilter, PlayerRow, ProjectionSource, ProjectionSpec, Season, SortSpec, SquadPick, TeamFilterState, TeamRow } from "./types";
 import "./App.css";
 
 const MAX_GW = 38;
@@ -32,6 +32,12 @@ function App() {
   const [refreshing, setRefreshing] = useState(false);
   const [refreshMessage, setRefreshMessage] = useState<string | null>(null);
   const [refreshNonce, setRefreshNonce] = useState(0);
+  const [myTeam, setMyTeam] = useState<MyTeam | null>(null);
+  const [entryIdText, setEntryIdText] = useState("");
+  const [syncing, setSyncing] = useState(false);
+  const [syncMessage, setSyncMessage] = useState<string | null>(null);
+  const [projSources, setProjSources] = useState<ProjectionSource[]>([]);
+  const [projection, setProjection] = useState<ProjectionSpec>({ source: null, start_gw: 1, end_gw: 4 });
 
   useEffect(() => {
     getSeasons().then((data) => {
@@ -56,6 +62,39 @@ function App() {
       );
     });
   }, [seasonId]);
+
+  useEffect(() => {
+    if (!seasonId) return;
+    setSyncMessage(null);
+    getMyTeam(seasonId)
+      .then((team) => {
+        setMyTeam(team);
+        setEntryIdText(team ? String(team.entry_id) : "");
+      })
+      .catch(() => setMyTeam(null));
+  }, [seasonId]);
+
+  useEffect(() => {
+    if (!seasonId) return;
+    getProjectionSources(seasonId)
+      .then((sources) => {
+        setProjSources(sources);
+        const first = sources[0];
+        setProjection(
+          first
+            ? { source: first.source, start_gw: first.first_gw, end_gw: first.last_gw }
+            : { source: null, start_gw: 1, end_gw: 4 }
+        );
+      })
+      .catch(() => setProjSources([]));
+  }, [seasonId]);
+
+  // Keyed by player_code so the table can look a row up in O(1); memoized so PlayerTable's
+  // column defs aren't rebuilt on every render.
+  const squad = useMemo(
+    () => new Map<number, SquadPick>((myTeam?.picks ?? []).map((p) => [p.player_code, p])),
+    [myTeam]
+  );
 
   const teamRanges = useMemo(
     () =>
@@ -82,6 +121,9 @@ function App() {
         per90,
         starts_only: startsOnly,
         positions,
+        projection_source: projection.source,
+        projection_start_gw: projection.start_gw,
+        projection_end_gw: projection.end_gw,
       })
         .then(setPlayerRows)
         .catch((err) => setFetchError(errorMessage(err)))
@@ -109,6 +151,7 @@ function App() {
     per90,
     startsOnly,
     positions,
+    projection,
     refreshNonce,
   ]);
 
@@ -125,6 +168,27 @@ function App() {
       })
       .catch((err) => setRefreshMessage(`Refresh failed: ${errorMessage(err)}`))
       .finally(() => setRefreshing(false));
+  };
+
+  const handleSyncMyTeam = () => {
+    const entryId = Number(entryIdText.trim());
+    if (!seasonId || syncing) return;
+    if (!Number.isInteger(entryId) || entryId <= 0) {
+      setSyncMessage("Enter your numeric FPL team id.");
+      return;
+    }
+    setSyncing(true);
+    setSyncMessage(null);
+    syncMyTeam(seasonId, entryId)
+      .then((res) => {
+        const missed = res.unmatched.length
+          ? ` ${res.unmatched.length} not on this board yet (${res.unmatched.join(", ")}).`
+          : "";
+        setSyncMessage(res.message + missed);
+        return getMyTeam(seasonId).then(setMyTeam);
+      })
+      .catch((err) => setSyncMessage(`Sync failed: ${errorMessage(err)}`))
+      .finally(() => setSyncing(false));
   };
 
   return (
@@ -151,7 +215,21 @@ function App() {
         <button className="refresh-btn" onClick={handleRefresh} disabled={refreshing || !seasonId}>
           {refreshing ? "Fetching…" : "Fetch New Data"}
         </button>
+        <label className="my-team-control">
+          My team id
+          <input
+            type="number"
+            placeholder="e.g. 1234567"
+            value={entryIdText}
+            onChange={(e) => setEntryIdText(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleSyncMyTeam()}
+          />
+        </label>
+        <button className="sync-btn" onClick={handleSyncMyTeam} disabled={syncing || !seasonId}>
+          {syncing ? "Syncing…" : "Sync My Team"}
+        </button>
         {refreshMessage && <span className="refresh-message">{refreshMessage}</span>}
+        {syncMessage && <span className="refresh-message">{syncMessage}</span>}
         {loading && <span className="loading">Loading…</span>}
       </header>
 
@@ -179,6 +257,9 @@ function App() {
           onPer90Change={setPer90}
           startsOnly={startsOnly}
           onStartsOnlyChange={setStartsOnly}
+          projSources={projSources}
+          projection={projection}
+          onProjectionChange={setProjection}
         />
 
         {viewMode === "players" ? (
@@ -191,6 +272,8 @@ function App() {
             positions={positions}
             onPositionsChange={setPositions}
             per90={per90}
+            squad={squad}
+            projLabel={projection.source ? `GW${projection.start_gw}-${projection.end_gw}` : null}
           />
         ) : (
           <TeamTable

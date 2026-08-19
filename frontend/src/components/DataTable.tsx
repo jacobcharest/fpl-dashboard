@@ -13,6 +13,8 @@ interface DataTableProps<T> {
   filters: NumericFilter[];
   onFiltersChange: (filters: NumericFilter[]) => void;
   customFilterColumns?: Record<string, ReactNode>;
+  /** Extra class(es) for a body row - used to highlight the user's own squad. */
+  getRowClassName?: (row: T) => string | undefined;
 }
 
 function FilterCell({
@@ -67,6 +69,7 @@ export function DataTable<T>({
   filters,
   onFiltersChange,
   customFilterColumns = {},
+  getRowClassName,
 }: DataTableProps<T>) {
   const table = useReactTable({
     data,
@@ -129,7 +132,7 @@ export function DataTable<T>({
         </thead>
         <tbody>
           {table.getRowModel().rows.map((row) => (
-            <tr key={row.id}>
+            <tr key={row.id} className={getRowClassName?.(row.original)}>
               {row.getVisibleCells().map((cell, i) => (
                 <td key={cell.id} className={i === 0 ? "sticky-col" : undefined}>
                   {flexRender(cell.column.columnDef.cell, cell.getContext())}

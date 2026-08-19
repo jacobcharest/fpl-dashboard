@@ -15,6 +15,8 @@ from app.queries import (
     query_series,
     query_teams,
 )
+from app.my_team import get_my_team, sync_my_team
+from app.projections import import_projections, projection_sources
 from app.refresh import backfill_season, seed_seasons
 
 
@@ -35,6 +37,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+class MyTeamSyncRequest(BaseModel):
+    entry_id: int
 
 
 class TeamRangeIn(BaseModel):
@@ -66,6 +72,9 @@ class PlayerTableRequest(TableRequest):
     per90: bool = False
     starts_only: bool = False
     positions: list[str] | None = None
+    projection_source: str | None = None
+    projection_start_gw: int | None = None
+    projection_end_gw: int | None = None
 
 
 class ChartSeriesRequest(TableRequest):
@@ -84,6 +93,9 @@ def _to_table_filters(req: TableRequest) -> TableFilters:
         filters=[NumericFilter(f.column, f.op, f.value) for f in req.filters],
         sort=SortSpec(req.sort.column, req.sort.direction) if req.sort else None,
         positions=getattr(req, "positions", None),
+        projection_source=getattr(req, "projection_source", None),
+        projection_start_gw=getattr(req, "projection_start_gw", None),
+        projection_end_gw=getattr(req, "projection_end_gw", None),
     )
 
 
@@ -153,3 +165,59 @@ def refresh_season(season_id: str):
     finally:
         conn.close()
     return summary
+
+
+@app.get("/api/my-team/{season_id}")
+def my_team(season_id: str):
+    """The stored squad for this season, or null if none has been synced yet."""
+    conn = get_connection()
+    try:
+        return get_my_team(conn, season_id)
+    finally:
+        conn.close()
+
+
+@app.post("/api/my-team/{season_id}/sync")
+def my_team_sync(season_id: str, req: MyTeamSyncRequest):
+    """Pulls the user's squad from the live FPL API. Before the season's first kickoff this can
+    only validate and store the team id (picks aren't public yet) - see app/my_team.py."""
+    conn = get_connection()
+    try:
+        return sync_my_team(conn, season_id, req.entry_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Couldn't reach the FPL API: {e}")
+    finally:
+        conn.close()
+
+
+class ProjectionImportRequest(BaseModel):
+    csv_path: str
+    source: str = "fplreview"
+
+
+@app.get("/api/projections/{season_id}")
+def list_projection_sources(season_id: str):
+    """Which projection models are loaded for this season, and what horizon each covers."""
+    conn = get_connection()
+    try:
+        return projection_sources(conn, season_id)
+    finally:
+        conn.close()
+
+
+@app.post("/api/projections/{season_id}/import")
+def projections_import(season_id: str, req: ProjectionImportRequest):
+    """Imports a projections CSV already on disk. Layout is sniffed rather than fixed - see
+    app/projections.py - and anything unmatchable comes back in the response instead of being
+    dropped."""
+    conn = get_connection()
+    try:
+        return import_projections(conn, season_id, req.csv_path, req.source)
+    except FileNotFoundError:
+        raise HTTPException(status_code=400, detail=f"No such file: {req.csv_path}")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    finally:
+        conn.close()
