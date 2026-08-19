@@ -6,6 +6,7 @@ __pycache__/
 # Data (regenerated via backfill/refresh scripts)
 data/*.db
 data/*.db-journal
+data/*.csv
 
 # Node / frontend
 frontend/node_modules/

@@ -59,6 +59,33 @@ has one consequence worth knowing: **a squad only becomes readable once its game
 Syncing before then saves and validates your team id and tells you when picks unlock; press the
 same button again after kickoff to pull the squad. Re-sync whenever you make transfers.
 
+## Projections
+
+The dashboard can show forward-looking expected points beside the historical stats. Import a
+projections CSV and the player table gains **xP** and **xMins** columns, summed over a gameweek
+horizon you choose in the sidebar:
+
+```bash
+backend/.venv/bin/python backend/scripts/import_projections.py 2026-27 ~/Downloads/fplreview.csv
+```
+
+Pass `--source <name>` to hold more than one model at once (they appear as separate options in
+the sidebar's Projections dropdown, so you can compare them).
+
+The parser sniffs the layout rather than requiring a fixed one - long format (a `gw` column plus
+`xp`) and wide format (`1_Pts`, `2_Pts`, ... or `gw1`, `gw2`, ...) both work, with optional
+`1_xMins`-style columns. Players are matched by `code` when the file has one, otherwise by name
+plus team against the live FPL API. **Anything it can't match is reported, never silently
+dropped** - a name that's ambiguous across two players (there are several every season) is listed
+rather than guessed at.
+
+[FPL Review](https://fplreview.com/) premium members can import their CSV download directly. On
+the free tier the download is disabled, so `backend/scripts/fplreview_export.js` builds the same
+file from the page - see the instructions at the top of that file.
+
+Projections are stored per gameweek, so the sidebar horizon re-sums them without re-importing.
+With no projections loaded the columns are absent entirely rather than showing empty cells.
+
 ## Run
 
 ```bash

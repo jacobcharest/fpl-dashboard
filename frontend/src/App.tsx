@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import { getMyTeam, getPlayerTable, getSeasonTeams, getSeasons, getTeamTable, refreshSeason, syncMyTeam } from "./api";
+import { getMyTeam, getPlayerTable, getProjectionSources, getSeasonTeams, getSeasons, getTeamTable, refreshSeason, syncMyTeam } from "./api";
 import { ChartsPanel } from "./components/ChartsPanel";
 import { FilterSidebar } from "./components/FilterSidebar";
 import { PlayerTable } from "./components/PlayerTable";
 import { TeamTable } from "./components/TeamTable";
-import type { MyTeam, NumericFilter, PlayerRow, Season, SortSpec, SquadPick, TeamFilterState, TeamRow } from "./types";
+import type { MyTeam, NumericFilter, PlayerRow, ProjectionSource, ProjectionSpec, Season, SortSpec, SquadPick, TeamFilterState, TeamRow } from "./types";
 import "./App.css";
 
 const MAX_GW = 38;
@@ -36,6 +36,8 @@ function App() {
   const [entryIdText, setEntryIdText] = useState("");
   const [syncing, setSyncing] = useState(false);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
+  const [projSources, setProjSources] = useState<ProjectionSource[]>([]);
+  const [projection, setProjection] = useState<ProjectionSpec>({ source: null, start_gw: 1, end_gw: 4 });
 
   useEffect(() => {
     getSeasons().then((data) => {
@@ -72,6 +74,21 @@ function App() {
       .catch(() => setMyTeam(null));
   }, [seasonId]);
 
+  useEffect(() => {
+    if (!seasonId) return;
+    getProjectionSources(seasonId)
+      .then((sources) => {
+        setProjSources(sources);
+        const first = sources[0];
+        setProjection(
+          first
+            ? { source: first.source, start_gw: first.first_gw, end_gw: first.last_gw }
+            : { source: null, start_gw: 1, end_gw: 4 }
+        );
+      })
+      .catch(() => setProjSources([]));
+  }, [seasonId]);
+
   // Keyed by player_code so the table can look a row up in O(1); memoized so PlayerTable's
   // column defs aren't rebuilt on every render.
   const squad = useMemo(
@@ -104,6 +121,9 @@ function App() {
         per90,
         starts_only: startsOnly,
         positions,
+        projection_source: projection.source,
+        projection_start_gw: projection.start_gw,
+        projection_end_gw: projection.end_gw,
       })
         .then(setPlayerRows)
         .catch((err) => setFetchError(errorMessage(err)))
@@ -131,6 +151,7 @@ function App() {
     per90,
     startsOnly,
     positions,
+    projection,
     refreshNonce,
   ]);
 
@@ -236,6 +257,9 @@ function App() {
           onPer90Change={setPer90}
           startsOnly={startsOnly}
           onStartsOnlyChange={setStartsOnly}
+          projSources={projSources}
+          projection={projection}
+          onProjectionChange={setProjection}
         />
 
         {viewMode === "players" ? (
@@ -249,6 +273,7 @@ function App() {
             onPositionsChange={setPositions}
             per90={per90}
             squad={squad}
+            projLabel={projection.source ? `GW${projection.start_gw}-${projection.end_gw}` : null}
           />
         ) : (
           <TeamTable

@@ -7,10 +7,11 @@ import { PositionFilter } from "./PositionFilter";
 
 const helper = createColumnHelper<PlayerRow>();
 
-const fmt = (digits: number) => (v: number | null) => (v == null ? "-" : v.toFixed(digits));
-const fmtPct = (v: number | null) => (v == null ? "-" : `${v.toFixed(1)}%`);
+// Optional columns (projections) can be undefined as well as null, so both mean "no value".
+const fmt = (digits: number) => (v: number | null | undefined) => (v == null ? "-" : v.toFixed(digits));
+const fmtPct = (v: number | null | undefined) => (v == null ? "-" : `${v.toFixed(1)}%`);
 
-function buildColumns(per90: boolean, squad: Map<number, SquadPick>): ColumnDef<PlayerRow, any>[] {
+function buildColumns(per90: boolean, squad: Map<number, SquadPick>, projLabel: string | null): ColumnDef<PlayerRow, any>[] {
   return [
     helper.accessor("web_name", {
       header: "Player",
@@ -52,6 +53,14 @@ function buildColumns(per90: boolean, squad: Map<number, SquadPick>): ColumnDef<
     helper.accessor("creativity", { header: "Creativity", cell: (i) => fmt(2)(i.getValue()) }),
     helper.accessor("threat", { header: "Threat", cell: (i) => fmt(2)(i.getValue()) }),
     helper.accessor("ict_index", { header: "ICT Index", cell: (i) => fmt(2)(i.getValue()) }),
+    // Forward-looking, so they sit apart from the historical stats and are dropped entirely
+    // when no projections are loaded rather than showing a column of dashes.
+    ...(projLabel
+      ? [
+          helper.accessor("xp", { header: `xP ${projLabel}`, cell: (i) => fmt(1)(i.getValue()) }),
+          helper.accessor("xmins", { header: "xMins", cell: (i) => fmt(0)(i.getValue()) }),
+        ]
+      : []),
   ];
 }
 
@@ -77,6 +86,8 @@ const FILTERABLE_COLUMNS = [
   "creativity",
   "threat",
   "ict_index",
+  "xp",
+  "xmins",
 ];
 
 interface Props {
@@ -90,6 +101,8 @@ interface Props {
   per90: boolean;
   /** The user's synced squad, keyed by player_code. Empty when nothing is synced. */
   squad: Map<number, SquadPick>;
+  /** e.g. "GW1-4"; null hides the projection columns entirely. */
+  projLabel: string | null;
 }
 
 export function PlayerTable({
@@ -102,8 +115,9 @@ export function PlayerTable({
   onPositionsChange,
   per90,
   squad,
+  projLabel,
 }: Props) {
-  const columns = useMemo(() => buildColumns(per90, squad), [per90, squad]);
+  const columns = useMemo(() => buildColumns(per90, squad, projLabel), [per90, squad, projLabel]);
 
   return (
     <DataTable

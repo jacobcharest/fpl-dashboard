@@ -368,3 +368,43 @@ arbitrary jump. Steps make step 1 the neutral baseline.
   both odd and even highlighted rows (accent, not stripe) and by asserting the CSSOM rule order is
   `zebra < my-team < hover`. This is the third time this table's zebra rule has caused trouble;
   anything adding a row-level background here needs the same check.
+
+## Post-launch fixes, round 5
+
+- **Projections import**: the dashboard was entirely backward-looking, which has a specific and
+  costly blind spot - historical points cannot see who is currently injured or benched. (Found the
+  hard way: a transfer target with 159 points and 3,413 minutes last season turned out to have 4
+  expected minutes this week.) So external expected-points models can now be imported and shown
+  alongside the historical stats: `app/projections.py`, `scripts/import_projections.py`,
+  `POST /api/projections/{season}/import`, `GET /api/projections/{season}`, and a new
+  `player_projections` table.
+  Design decisions worth recording:
+  - **Stored per (player, gameweek, source), not as a single total.** Per-gameweek rows mean the
+    horizon is a query-time choice - the sidebar's Projections section re-sums GW1-4 vs GW1-2
+    without re-importing - and the `source` column lets two models sit side by side for
+    comparison rather than one overwriting the other. This matters because horizon length is a
+    real modelling decision, not a display preference: short windows are dominated by fixture
+    swings, long ones by model decay.
+  - **The CSV parser sniffs layout instead of pinning to one vendor.** Providers disagree on
+    column names and most ship a *wide* layout (`1_Pts`, `2_Pts`, ...) rather than one row per
+    gameweek, so `parse_csv` accepts long or wide and identifies the gameweek columns by regex.
+    Pinning to FPL Review's exact format would break on the next source.
+  - **Unmatched and ambiguous players are reported, never dropped.** Projections identify players
+    by name, and names collide every season (Muñoz, Gomez, Anderson, Davis all had two claimants
+    in 2026/27). Resolution goes through the live bootstrap on `web_name` + team where a team
+    column exists; a name that stays ambiguous is listed in the response rather than guessed at.
+    An import that quietly loses part of the squad is worse than one that fails loudly.
+  - **Projection columns are absent, not blank, when nothing is loaded.** `query_players` returns
+    `xp`/`xmins` only when a horizon is requested, and `PlayerTable` builds those column defs
+    conditionally - so the default view isn't two columns of dashes.
+  - Projections are merged *after* the per-90 conversion, same as the DC hit rate: a projected
+    total is already forward-looking and per-90 doesn't apply to it.
+  Also added `scripts/fplreview_export.js`, since FPL Review gates CSV download behind premium
+  while still serving the projections themselves to free users - the script rebuilds the same CSV
+  from the page so the free tier is usable without a subscription.
+  Verified end-to-end: 56 players × 4 gameweeks imported from real FPL Review data with values
+  matching the source exactly; long format, wide format, an unmatched name, an ambiguous name
+  (`Gomez` with no team column) and a garbage file all handled as intended; in-browser, the
+  horizon control re-sums correctly (GW1-2 totals differ from GW1-4 and match the API), sorting by
+  xP works, and toggling the source off removes both columns (25 → 23) and back again with no
+  console errors.

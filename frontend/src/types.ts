@@ -49,6 +49,9 @@ export interface PlayerTableRequest extends TableRequest {
   per90: boolean;
   starts_only: boolean;
   positions: string[] | null;
+  projection_source?: string | null;
+  projection_start_gw?: number | null;
+  projection_end_gw?: number | null;
 }
 
 export const POSITIONS = ["GK", "DEF", "MID", "FWD"] as const;
@@ -79,6 +82,8 @@ export interface PlayerRow {
   creativity: number;
   threat: number;
   ict_index: number;
+  xp?: number | null;
+  xmins?: number | null;
 }
 
 export interface TeamRow {
@@ -117,6 +122,21 @@ export interface SeriesPoint {
   name: string;
   round: number;
   [stat: string]: number | string | null;
+}
+
+export interface ProjectionSource {
+  source: string;
+  players: number;
+  first_gw: number;
+  last_gw: number;
+  imported_at: string | null;
+}
+
+/** Horizon the player table sums projections over. null source = projections off. */
+export interface ProjectionSpec {
+  source: string | null;
+  start_gw: number;
+  end_gw: number;
 }
 
 export interface SquadPick {

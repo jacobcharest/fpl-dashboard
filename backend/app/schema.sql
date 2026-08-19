@@ -108,3 +108,18 @@ CREATE TABLE IF NOT EXISTS manager_squad (
     multiplier      INTEGER,
     PRIMARY KEY (season_id, player_code)
 );
+
+-- Forward-looking expected-points projections, imported from an external model
+-- (see app/projections.py). Keyed per gameweek so any horizon can be summed at query time,
+-- and per source so two models can be held side by side and compared.
+CREATE TABLE IF NOT EXISTS player_projections (
+    season_id   TEXT NOT NULL REFERENCES seasons(id),
+    player_code INTEGER NOT NULL,   -- stable code, resolved from the live bootstrap on import
+    round       INTEGER NOT NULL,   -- gameweek this projection is for
+    source      TEXT NOT NULL,      -- e.g. 'fplreview'
+    xp          REAL,               -- projected FPL points
+    xmins       REAL,               -- projected minutes; the availability signal, often the point
+    imported_at TEXT,
+    PRIMARY KEY (season_id, player_code, round, source)
+);
+CREATE INDEX IF NOT EXISTS idx_proj_round ON player_projections(season_id, source, round);
