@@ -33,6 +33,11 @@ pull the latest gameweek results for whichever season is selected — that's the
 no need to re-run the script by hand. It hits `POST /api/refresh/{season_id}`, which is safe to
 call repeatedly (it re-ingests the season from scratch rather than trying to append).
 
+The season in progress is read straight from the live FPL API (`backend/app/live_refresh.py`)
+rather than the community archive, which can lag it by several gameweeks early in a season.
+Past seasons still come from the archive. Loading the previous season as well is worth doing:
+the built-in projection model uses it as a prior for players with only a few gameweeks of form.
+
 ### Not-yet-started seasons
 
 A season that hasn't kicked off yet won't exist in the source archive, but FPL usually reveals
@@ -85,6 +90,35 @@ file from the page - see the instructions at the top of that file.
 
 Projections are stored per gameweek, so the sidebar horizon re-sums them without re-importing.
 With no projections loaded the columns are absent entirely rather than showing empty cells.
+
+### Built-in projections (no subscription)
+
+If you have no external model to import, generate one from the live FPL API instead:
+
+```bash
+backend/.venv/bin/python backend/scripts/generate_projections.py 2026-27 --horizon 8
+```
+
+It appears in the sidebar as source `fpl_api` (also `POST /api/projections/{season}/generate`).
+The model is deliberately simple and explainable - points per gameweek this season, shrunk
+toward last season, scaled by fixture difficulty and the player's availability - and it is
+documented in `backend/app/fpl_projections.py`. It's a floor, not a substitute for a real model:
+import FPL Review or similar when you can, and compare the two from the dropdown.
+
+## Review your team
+
+With this season's stats and a projection source loaded, get a suggested XI, captain, and the
+best transfers for the coming gameweeks:
+
+```bash
+backend/.venv/bin/python backend/scripts/review_team.py 2026-27 1234567
+```
+
+Pass `--horizon` to change how many gameweeks transfers are judged over (default 5),
+`--source` to plan against an imported model, `--free-transfers` if the simulated count is off,
+and `--json` for machine-readable output. The same report is served at
+`GET /api/my-team/{season}/review?entry_id=...`. Selling prices and free transfers aren't public,
+so both are reconstructed from your transfer history - see `backend/app/team_review.py`.
 
 ## Run
 

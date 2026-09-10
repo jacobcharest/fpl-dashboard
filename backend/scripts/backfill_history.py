@@ -1,4 +1,6 @@
-"""CLI for one-time (or occasional) ingestion of season data from the vaastav archive.
+"""CLI for one-time (or occasional) ingestion of season data.
+
+Past seasons come from the vaastav archive; the season in progress comes from the live FPL API.
 
 The reusable logic lives in app/refresh.py, shared with the "Fetch new data" button
 (POST /api/refresh) - see that module's docstring for why re-running this doubles as the
@@ -17,6 +19,8 @@ from urllib.error import HTTPError
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from app.db import get_connection, init_db
+from app.live_refresh import fetch_bootstrap, refresh_live_season
+from app.my_team import live_season_id
 from app.refresh import backfill_season, seed_seasons
 from app.seasons import SEASONS
 
@@ -35,7 +39,21 @@ def main():
     seed_seasons(conn)
 
     targets = [s["id"] for s in SEASONS] if args.all else [args.season]
+    bootstrap = fetch_bootstrap()
+    live_id = live_season_id(bootstrap)
     for season_id in targets:
+        if season_id == live_id:
+            # The archive lags the live API (by weeks, early in a season), so the season in
+            # progress is read from the API itself - see app/live_refresh.py.
+            print(f"[{season_id}] fetching and ingesting from the live FPL API ...")
+            summary = refresh_live_season(conn, season_id, bootstrap)
+            print(
+                f"[{season_id}] done: {summary['teams']} teams, {summary['players']} players, "
+                f"{summary['fixtures']} fixtures, {summary['gw_rows_inserted']} gw-stat rows "
+                f"over GW{summary['gameweeks'][0]}-{summary['gameweeks'][-1]}"
+                if summary["gameweeks"] else f"[{season_id}] done: season not started yet"
+            )
+            continue
         print(f"[{season_id}] fetching and ingesting ...")
         try:
             summary = backfill_season(conn, season_id)

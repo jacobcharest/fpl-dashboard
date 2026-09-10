@@ -412,3 +412,41 @@ arbitrary jump. Steps make step 1 the neutral baseline.
   horizon control re-sums correctly (GW1-2 totals differ from GW1-4 and match the API), sorting by
   xP works, and toggling the source off removes both columns (25 → 23) and back again with no
   console errors.
+
+## Post-launch fixes, round 6
+
+- **Live-API refresh for the season in progress**: the vaastav archive held only GW1 while GW3
+  had finished, so "Fetch New Data" on the live season was a no-op for weeks. `app/live_refresh.py`
+  now ingests the live season from the FPL API itself (`bootstrap-static`, `fixtures`,
+  `event/{gw}/live`) into the same tables; `POST /api/refresh/{season}` and
+  `backfill_history.py` route the live season there and everything else to the archive as
+  before. The `live` payload aggregates a player's stats over the round, which is exact for a
+  single-fixture gameweek; a double gameweek is split per fixture from `element-summary/{id}`
+  for just the players involved, so the request count stays at three plus a handful rather than
+  one per player. `price` on live rows is the current price (the archive's per-round `value`
+  isn't in the live payload); the table only ever shows the last one, so nothing visible changes.
+  Verified: GW1-3 rows for all 654 players, season totals matching the bootstrap exactly
+  (Gakpo 28, B.Fernandes 27, ...).
+- **Built-in projection model** (`app/fpl_projections.py`, `scripts/generate_projections.py`,
+  `POST /api/projections/{season}/generate`, source `fpl_api`): FPL Review can only be exported
+  from a browser session, so there is now an always-available fallback that writes into the same
+  `player_projections` table via the same CSV importer (one write path, and a readable copy in
+  `data/`). `xp = base_rate * fixture_multiplier * p_play`, where base rate is points per *team
+  gameweek* (so rotation is priced in) shrunk toward last season with four gameweeks of prior
+  weight, the multiplier is FDR-based and normalised to 1.0 at FDR 3 with defenders/keepers
+  swinging more than attackers, and `p_play` follows `status` / `chance_of_playing_next_round`
+  (a doubt eases back to fit; an injury holds flat; a suspension is one match). Doubles sum,
+  blanks are zero. The official `ep_next` is shown next to it in the review but not stitched in:
+  one consistent model over the horizon beats two disagreeing ones. All of that is a heuristic
+  and says so in its docstring.
+- **Team review** (`app/team_review.py`, `scripts/review_team.py`,
+  `GET /api/my-team/{season}/review`): the synced squad scored against a projection source, with
+  the best XI over every legal formation, captain/vice by next-GW xP, a bench order, and ranked
+  single and double transfers net of hits, under budget, three-per-club and like-for-like
+  position swaps. Two rules the public API hides had to be reconstructed: selling price
+  (purchase price = GW1 price for the original squad, or `element_in_cost` from the transfer
+  history, profit halved and rounded down) and free transfers (simulated from the transfer and
+  chip history, capped at five, with a `--free-transfers` override). Candidates need an average
+  of 60+ projected minutes, which is what keeps injured-but-high-scoring players out of the
+  suggestions. Verified against a public team: prices, bank, chips, formation choice, captaincy,
+  and the 400 path for a bad team id.

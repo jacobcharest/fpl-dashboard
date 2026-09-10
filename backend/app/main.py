@@ -15,9 +15,12 @@ from app.queries import (
     query_series,
     query_teams,
 )
-from app.my_team import get_my_team, sync_my_team
+from app.fpl_projections import DEFAULT_HORIZON, generate_projections
+from app.live_refresh import fetch_bootstrap, refresh_live_season
+from app.my_team import get_my_team, live_season_id, sync_my_team
 from app.projections import import_projections, projection_sources
 from app.refresh import backfill_season, seed_seasons
+from app.team_review import review_team
 
 
 @asynccontextmanager
@@ -154,12 +157,17 @@ def chart_series(req: ChartSeriesRequest):
 
 @app.post("/api/refresh/{season_id}")
 def refresh_season(season_id: str):
-    """Re-fetches this season from the source archive and re-ingests it (idempotent - safe to
-    run repeatedly). This is the "Fetch new data" button; see app/refresh.py for why this
-    doubles as the current season's live-data refresh."""
+    """Re-fetches this season and re-ingests it (idempotent - safe to run repeatedly). This is
+    the "Fetch new data" button. The live season comes straight from the FPL API (see
+    app/live_refresh.py - the community archive can lag it by weeks); past seasons come from
+    the archive (see app/refresh.py)."""
     conn = get_connection()
     try:
-        summary = backfill_season(conn, season_id)
+        bootstrap = fetch_bootstrap()
+        if season_id == live_season_id(bootstrap):
+            summary = refresh_live_season(conn, season_id, bootstrap)
+        else:
+            summary = backfill_season(conn, season_id)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"{season_id}: {e}")
     finally:
@@ -197,6 +205,27 @@ class ProjectionImportRequest(BaseModel):
     source: str = "fplreview"
 
 
+class ProjectionGenerateRequest(BaseModel):
+    horizon: int = DEFAULT_HORIZON
+    source: str = "fpl_api"
+
+
+@app.get("/api/my-team/{season_id}/review")
+def my_team_review(season_id: str, entry_id: int, source: str = "fpl_api", horizon: int = 5,
+                   free_transfers: int | None = None):
+    """Suggested XI, captain and transfers for the coming gameweeks, against the loaded
+    projections. Syncs the squad as a side effect - see app/team_review.py."""
+    conn = get_connection()
+    try:
+        return review_team(conn, season_id, entry_id, source, horizon, free_transfers)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Couldn't reach the FPL API: {e}")
+    finally:
+        conn.close()
+
+
 @app.get("/api/projections/{season_id}")
 def list_projection_sources(season_id: str):
     """Which projection models are loaded for this season, and what horizon each covers."""
@@ -219,5 +248,21 @@ def projections_import(season_id: str, req: ProjectionImportRequest):
         raise HTTPException(status_code=400, detail=f"No such file: {req.csv_path}")
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    finally:
+        conn.close()
+
+
+@app.post("/api/projections/{season_id}/generate")
+def projections_generate(season_id: str, req: ProjectionGenerateRequest):
+    """Builds the built-in FPL-API projection model over the next `horizon` gameweeks and
+    loads it under `source` - the fallback when no external model has been imported. See
+    app/fpl_projections.py for the model."""
+    conn = get_connection()
+    try:
+        return generate_projections(conn, season_id, req.horizon, req.source)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Couldn't reach the FPL API: {e}")
     finally:
         conn.close()
