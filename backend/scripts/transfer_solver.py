@@ -181,6 +181,12 @@ def solve(squad, players, proj, gws, opts):
             continue
         for gw in gws:
             m += tin[pid][gw] == 0
+    for name in opts.sell or []:
+        pid = by_name.get(name.lower())
+        if pid is None:
+            sys.exit(f"--sell {name}: not in the candidate pool")
+        for gw in gws:
+            m += sq[pid][gw] == 0
 
     m += pulp.lpSum(
         opts.decay**k
@@ -324,6 +330,7 @@ def main():
     parser.add_argument("--time-limit", type=int, default=180, help="solver seconds")
     parser.add_argument("--keep", nargs="*", help="web names to hold all horizon")
     parser.add_argument("--ban", nargs="*", help="web names never to buy")
+    parser.add_argument("--sell", nargs="*", help="web names out from GW1 of horizon")
     parser.add_argument("--out", help="write the markdown report here as well")
     opts = parser.parse_args()
 
