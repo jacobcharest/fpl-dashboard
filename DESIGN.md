@@ -412,3 +412,16 @@ arbitrary jump. Steps make step 1 the neutral baseline.
   horizon control re-sums correctly (GW1-2 totals differ from GW1-4 and match the API), sorting by
   xP works, and toggling the source off removes both columns (25 → 23) and back again with no
   console errors.
+
+## Post-launch fixes, round 6
+
+- **Live season ingested from the FPL API, not the archive**: the refresh path assumed the
+  vaastav archive tracks the live game within a day. In 2026/27 it stopped after gameweek 1,
+  so "Fetch New Data" kept re-ingesting the same round-1 file and the dashboard sat frozen on
+  GW1 with no error. `backfill_season` now dispatches: the season the API says is live (same
+  `live_season_id` detection `my_team.py` uses) is built from `bootstrap-static`, `fixtures/`
+  and one `element-summary/{id}/` call per player, fetched on a small thread pool; every other
+  season keeps the archive path. Both feed one `_write_season`, so the two sources cannot
+  drift column-for-column. Verified: 2026/27 ingests rounds 1-4 (2,547 rows, 657 players, 34s
+  wall clock) where the archive gave 610 rows of round 1; 2025/26 through the archive path
+  produces row-for-row identical tables to the pre-refactor code (all five tables hashed).

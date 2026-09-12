@@ -154,9 +154,9 @@ def chart_series(req: ChartSeriesRequest):
 
 @app.post("/api/refresh/{season_id}")
 def refresh_season(season_id: str):
-    """Re-fetches this season from the source archive and re-ingests it (idempotent - safe to
-    run repeatedly). This is the "Fetch new data" button; see app/refresh.py for why this
-    doubles as the current season's live-data refresh."""
+    """Re-fetches this season and re-ingests it (idempotent - safe to run repeatedly). This is
+    the "Fetch new data" button. The season in progress comes from the live FPL API; finished
+    seasons from the community archive - see app/refresh.py."""
     conn = get_connection()
     try:
         summary = backfill_season(conn, season_id)
