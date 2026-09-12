@@ -599,6 +599,11 @@ def planWeek(squad_ids, bank, sell, free_transfers, players, proj, gws):
             continue
         hit = max(0, 2 - free_transfers) * HIT_COST
         consider([(a[1], a[2]), (b[1], b[2])], hit)
+    if free_transfers >= 3:
+        for a, b, c in itertools.combinations(singles[:15], 3):
+            if len({a[1], b[1], c[1]}) < 3 or len({a[2], b[2], c[2]}) < 3:
+                continue
+            consider([(a[1], a[2]), (b[1], b[2]), (c[1], c[2])], 0)
     if not best["moves"]:
         best["gain"] = 0.0
     return best
