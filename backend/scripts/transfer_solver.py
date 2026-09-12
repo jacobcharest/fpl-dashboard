@@ -156,6 +156,8 @@ def solve(squad, players, proj, gws, opts):
 
         # Transfers, free-transfer rollover, hits, money.
         n_in = pulp.lpSum(tin[p][gw] for p in pool)
+        if opts.max_transfers is not None:
+            m += n_in <= opts.max_transfers
         m += hits[gw] >= n_in - ft[gw]
         m += ft[gw] - n_in + hits[gw] >= 0
         nxt = gws[k + 1] if k + 1 < len(gws) else "end"
@@ -325,6 +327,9 @@ def main():
     parser.add_argument("--bench-weight", type=float, default=0.1)
     parser.add_argument("--ft-value", type=float, default=1.5, help="xP per FT at end")
     parser.add_argument("--max-hits", type=int, default=1, help="max hits per week")
+    parser.add_argument(
+        "--max-transfers", type=int, help="cap on transfers made in any one week"
+    )
     parser.add_argument("--pool", type=int, default=30, help="candidates per position")
     parser.add_argument("--pool-week", type=int, default=6, help="per position per GW")
     parser.add_argument("--time-limit", type=int, default=180, help="solver seconds")
