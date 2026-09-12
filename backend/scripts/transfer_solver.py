@@ -167,6 +167,21 @@ def solve(squad, players, proj, gws, opts):
         prev_gw = gw
     m += ft[gws[0]] == squad["free_transfers"]
 
+    # Manual locks: --keep holds a player all horizon, --ban never buys one.
+    by_name = {players[p]["web_name"].lower(): p for p in pool}
+    for name in opts.keep or []:
+        pid = by_name.get(name.lower())
+        if pid is None:
+            sys.exit(f"--keep {name}: not in the candidate pool")
+        for gw in gws:
+            m += sq[pid][gw] == 1
+    for name in opts.ban or []:
+        pid = by_name.get(name.lower())
+        if pid is None:
+            continue
+        for gw in gws:
+            m += tin[pid][gw] == 0
+
     m += pulp.lpSum(
         opts.decay**k
         * (
@@ -185,7 +200,7 @@ def solve(squad, players, proj, gws, opts):
     ) + opts.ft_value * ft["end"]
 
     started = time.time()
-    m.solve(pulp.PULP_CBC_CMD(msg=False, timeLimit=opts.time_limit, gapRel=0.005))
+    m.solve(pulp.PULP_CBC_CMD(msg=False, timeLimit=opts.time_limit, gapRel=0.0005))
     status = pulp.LpStatus[m.status]
     if status not in ("Optimal", "Not Solved"):
         sys.exit(f"Solver status: {status}")
@@ -307,6 +322,8 @@ def main():
     parser.add_argument("--pool", type=int, default=30, help="candidates per position")
     parser.add_argument("--pool-week", type=int, default=6, help="per position per GW")
     parser.add_argument("--time-limit", type=int, default=180, help="solver seconds")
+    parser.add_argument("--keep", nargs="*", help="web names to hold all horizon")
+    parser.add_argument("--ban", nargs="*", help="web names never to buy")
     parser.add_argument("--out", help="write the markdown report here as well")
     opts = parser.parse_args()
 
