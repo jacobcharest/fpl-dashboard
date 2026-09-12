@@ -33,6 +33,11 @@ pull the latest gameweek results for whichever season is selected — that's the
 no need to re-run the script by hand. It hits `POST /api/refresh/{season_id}`, which is safe to
 call repeatedly (it re-ingests the season from scratch rather than trying to append).
 
+The season currently being played is read straight from the official FPL API (one request per
+player, under a minute in total), so it is up to date the moment a gameweek's results are in.
+Finished seasons come from the [vaastav](https://github.com/vaastav/Fantasy-Premier-League)
+community archive, the only place their per-gameweek history still lives.
+
 ### Not-yet-started seasons
 
 A season that hasn't kicked off yet won't exist in the source archive, but FPL usually reveals
