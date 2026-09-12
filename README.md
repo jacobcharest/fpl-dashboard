@@ -88,18 +88,25 @@ With no projections loaded the columns are absent entirely rather than showing e
 
 ## Transfer plan
 
-With no projections CSV to hand, `scripts/transfer_plan.py` builds a multi-week plan straight
-from the FPL API: its own `ep_next`/form projection blended with a fixture-adjusted xG/xA/DC
-model, then a greedy week-by-week search over transfers (bank, 3-per-club, hits, free
-transfers all respected):
+`scripts/transfer_plan.py` builds a multi-week plan: per-gameweek projections, then a greedy
+week-by-week search over 0/1/2-transfer moves (bank, selling prices, 3-per-club, hits and free
+transfers all respected), scored over the horizon plus a couple of lookahead weeks so the last
+planned week doesn't churn for a one-week bump.
 
 ```bash
-backend/.venv/bin/python backend/scripts/transfer_plan.py --entry 1234567 --weeks 4 --out plan.md
+# Pull FPL Review's free-tier projections headlessly (any valid team id works):
+node backend/scripts/fplreview_fetch.js 1234567 fplreview.csv
+
+# Plan with them:
+backend/.venv/bin/python backend/scripts/transfer_plan.py --entry 1234567 \
+    --projections fplreview.csv --weeks 4 --out plan.md
 ```
 
-Without `--entry` it prints the top projected players per position over the horizon. Picks
-come from the public API, so the squad it plans from is the one that played the most recent
-started gameweek - run it before making transfers, not after.
+Without `--projections` it falls back to FPL's own `ep_next`/form projection blended with a
+fixture-adjusted xG/xA/DC model built from the API. Without `--entry` it prints the top
+projected players per position over the horizon. Picks come from the public API, so the squad
+it plans from is the one that played the most recent started gameweek - run it before making
+transfers, not after.
 
 ## Run
 

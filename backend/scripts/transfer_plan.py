@@ -27,6 +27,11 @@ Plan for your own squad (team id is the number in your FPL URL)::
     backend/.venv/bin/python backend/scripts/transfer_plan.py --entry 1234567 \
         --free-transfers 2 --weeks 4 --out plan.md
 
+With FPL Review projections (see ``fplreview_fetch.js``) instead of the model::
+
+    backend/.venv/bin/python backend/scripts/transfer_plan.py --entry 1234567 \
+        --projections fplreview.csv
+
 Picks are read from the public API, which only serves them once a gameweek has
 kicked off (see README "Highlight your own team"), so the squad used is the one
 from the most recent started gameweek plus nothing else - make the plan before
@@ -34,12 +39,17 @@ you make the transfers.
 """
 
 import argparse
+import csv
 import itertools
 import json
+import re
 import sys
 import urllib.request
 from collections import defaultdict
 from urllib.error import HTTPError
+
+GW_PTS_RE = re.compile(r"^(\d{1,2})_pts$", re.I)
+GW_MINS_RE = re.compile(r"^(\d{1,2})_xmins$", re.I)
 
 API_BASE = "https://fantasy.premierleague.com/api"
 
@@ -262,6 +272,94 @@ def buildProjections(bootstrap, fixtures, gws):
             blended = FPL_WEIGHT * fpl + (1.0 - FPL_WEIGHT) * model
             xp[gw] = max(p_play * blended, 0.0)
         out[p["id"]] = {"xp": xp, "xmins": p_play * mins_est, "p_play": p_play}
+    return out
+
+
+def csvHasGameweek(path, gw):
+    """Whether a wide projections CSV carries a ``<gw>_Pts`` column."""
+    with open(path, newline="", encoding="utf-8") as fh:
+        header = next(csv.reader(fh))
+    return any(
+        (m := GW_PTS_RE.match(c.strip())) and int(m.group(1)) == gw for c in header
+    )
+
+
+def loadProjectionsCsv(path, bootstrap, gws):
+    """Per-player projections from a wide CSV (FPL Review export layout).
+
+    Columns ``<gw>_Pts`` and optional ``<gw>_xMins``; players matched by ``id``
+    (FPL element id), then ``code``, then ``name`` + ``team``. Players absent from
+    the file project to zero, so a stale file quietly benches everyone new -
+    check the reported match count.
+
+    Parameters
+    ----------
+    path : str
+    bootstrap : dict
+    gws : list of int
+
+    Returns
+    -------
+    dict
+        Same shape as ``buildProjections``.
+    """
+    teams = {t["id"]: t["short_name"].lower() for t in bootstrap["teams"]}
+    by_id = {p["id"]: p for p in bootstrap["elements"]}
+    by_code = {p["code"]: p for p in bootstrap["elements"]}
+    by_name = {}
+    for p in bootstrap["elements"]:
+        by_name[(p["web_name"].lower(), teams[p["team"]])] = p
+
+    with open(path, newline="", encoding="utf-8") as fh:
+        rows = list(csv.DictReader(fh))
+    if not rows:
+        sys.exit(f"{path} is empty.")
+    pts_cols, mins_cols = {}, {}
+    for col in rows[0]:
+        m = GW_PTS_RE.match(col.strip())
+        if m:
+            pts_cols[int(m.group(1))] = col
+        m = GW_MINS_RE.match(col.strip())
+        if m:
+            mins_cols[int(m.group(1))] = col
+    missing = [g for g in gws if g not in pts_cols]
+    if missing:
+        sys.exit(
+            f"{path} has no projections for GW{missing} (has GW"
+            f"{sorted(pts_cols)}); shorten --weeks."
+        )
+
+    def num(v):
+        try:
+            return float(v)
+        except (TypeError, ValueError):
+            return 0.0
+
+    out = {
+        pid: {"xp": {g: 0.0 for g in gws}, "xmins": 0.0, "p_play": 0.0}
+        for pid in by_id
+    }
+    matched = 0
+    for row in rows:
+        player = None
+        if row.get("id"):
+            player = by_id.get(int(num(row["id"])))
+        if player is None and row.get("code"):
+            player = by_code.get(int(num(row["code"])))
+        if player is None:
+            key = (row.get("name", "").strip().lower(), row.get("team", "").lower())
+            player = by_name.get(key)
+        if player is None:
+            continue
+        matched += 1
+        xp = {g: max(num(row[pts_cols[g]]), 0.0) for g in gws}
+        mins = [num(row[mins_cols[g]]) for g in gws if g in mins_cols]
+        xmins = sum(mins) / len(mins) if mins else (90.0 if any(xp.values()) else 0)
+        out[player["id"]] = {"xp": xp, "xmins": xmins, "p_play": 1.0}
+    print(
+        f"[projections] {matched}/{len(rows)} rows matched from {path}",
+        file=sys.stderr,
+    )
     return out
 
 
@@ -572,8 +670,22 @@ def renderTargets(bootstrap, fixtures, proj, gws, lines, per_pos=10):
         lines.append("")
 
 
-def renderPlan(squad, bootstrap, fixtures, proj, gws, lines):
-    """Append a week-by-week transfer plan for `squad` to `lines`."""
+def renderPlan(squad, bootstrap, fixtures, proj, gws, lines, eval_gws=None):
+    """Append a week-by-week transfer plan for `squad` to `lines`.
+
+    Parameters
+    ----------
+    squad : dict
+        Output of ``loadSquad``.
+    bootstrap, fixtures, proj : see ``buildProjections``.
+    gws : list of int
+        Gameweeks to plan moves for.
+    lines : list of str
+    eval_gws : list of int, optional
+        Longer window the moves are scored over, so the final planned week
+        doesn't sell players for a one-week bump. Defaults to ``gws``.
+    """
+    eval_gws = eval_gws or gws
     players = {p["id"]: p for p in bootstrap["elements"]}
     teams = {t["id"]: t["short_name"] for t in bootstrap["teams"]}
     opp = opponentsByTeam(fixtures, gws)
@@ -604,7 +716,7 @@ def renderPlan(squad, bootstrap, fixtures, proj, gws, lines):
     lines.append("")
 
     for i, gw in enumerate(gws):
-        horizon = gws[i:]
+        horizon = eval_gws[i:]
         move = planWeek(ids, bank, sell, ft, players, proj, horizon)
         lines.append(f"### GW{gw}\n")
         if move["moves"]:
@@ -616,8 +728,8 @@ def renderPlan(squad, bootstrap, fixtures, proj, gws, lines):
                 )
             hit = f", -{move['hit']} hit" if move["hit"] else ""
             lines.append(
-                f"- Gain over remaining horizon: +{move['gain']:.1f} xP{hit}. "
-                f"Bank after: {move['bank'] / 10:.1f}m."
+                f"- Gain over GW{horizon[0]}-GW{horizon[-1]}: +{move['gain']:.1f} "
+                f"xP{hit}. Bank after: {move['bank'] / 10:.1f}m."
             )
             ids, sell, bank = applyMoves(ids, sell, bank, move["moves"], players)
             ft = min(max(ft - len(move["moves"]), 0) + 1, MAX_FREE_TRANSFERS)
@@ -641,26 +753,46 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--entry", type=int, help="FPL team id for a squad plan")
     parser.add_argument("--weeks", type=int, default=4, help="horizon in gameweeks")
+    parser.add_argument(
+        "--lookahead",
+        type=int,
+        default=2,
+        help="extra gameweeks the moves are scored over beyond --weeks",
+    )
     parser.add_argument("--free-transfers", type=int, help="override FT estimate")
     parser.add_argument("--out", help="write the markdown report here as well")
     parser.add_argument("--targets", type=int, default=10, help="rows per position")
+    parser.add_argument(
+        "--projections",
+        help="wide projections CSV (e.g. from fplreview_fetch.js) instead of the "
+        "built-in FPL-API model",
+    )
     args = parser.parse_args()
 
     bootstrap = fetchJson(f"{API_BASE}/bootstrap-static/")
     fixtures = fetchJson(f"{API_BASE}/fixtures/")
     gws = gameweekWindow(bootstrap, args.weeks)
-    proj = buildProjections(bootstrap, fixtures, gws)
+    eval_gws = gameweekWindow(bootstrap, args.weeks + args.lookahead)
+    if args.projections:
+        eval_gws = eval_gws[: len(gws)] + [
+            g for g in eval_gws[len(gws):] if csvHasGameweek(args.projections, g)
+        ]
+        proj = loadProjectionsCsv(args.projections, bootstrap, eval_gws)
+        source = f"projections CSV {args.projections}"
+    else:
+        proj = buildProjections(bootstrap, fixtures, eval_gws)
+        source = (
+            "FPL API ep_next/form blended 50/50 with a fixture-adjusted "
+            "xG/xA/DC model; see script docstring"
+        )
 
     lines = [f"# FPL transfer plan, GW{gws[0]}-GW{gws[-1]}\n"]
     events = {e["id"]: e for e in bootstrap["events"]}
     deadline = events[gws[0]]["deadline_time"]
-    lines.append(
-        f"GW{gws[0]} deadline: {deadline}. Source: FPL API ep_next/form blended "
-        "50/50 with a fixture-adjusted xG/xA/DC model; see script docstring.\n"
-    )
+    lines.append(f"GW{gws[0]} deadline: {deadline}. Source: {source}.\n")
     if args.entry:
         squad = loadSquad(args.entry, bootstrap, args.free_transfers)
-        renderPlan(squad, bootstrap, fixtures, proj, gws, lines)
+        renderPlan(squad, bootstrap, fixtures, proj, gws, lines, eval_gws)
     renderTargets(bootstrap, fixtures, proj, gws, lines, args.targets)
 
     report = "\n".join(lines)
