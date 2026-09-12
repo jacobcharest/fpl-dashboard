@@ -108,6 +108,21 @@ projected players per position over the horizon. Picks come from the public API,
 it plans from is the one that played the most recent started gameweek - run it before making
 transfers, not after.
 
+### Joint optimisation
+
+`scripts/transfer_solver.py` goes further than the greedy planner: it solves every week's
+transfers, lineup and captain together over the whole projection horizon as a mixed-integer
+programme (PuLP + CBC, a few seconds for six gameweeks). It will bank transfers for a later
+swing or take a hit that pays back, and reports the plan against a no-transfers baseline:
+
+```bash
+backend/.venv/bin/python backend/scripts/transfer_solver.py --entry 1234567 \
+    --projections fplreview.csv --out plan.md
+```
+
+`--decay`, `--ft-value`, `--bench-weight` and `--max-hits` tune how much it trusts later
+weeks, values a banked transfer, weights the bench and tolerates hits. Chips aren't modelled.
+
 ## Run
 
 ```bash
