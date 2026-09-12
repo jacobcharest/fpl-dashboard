@@ -652,7 +652,7 @@ def renderTargets(bootstrap, fixtures, proj, gws, lines, per_pos=10):
             for p in bootstrap["elements"]
             if p["element_type"] == pos_id and proj[p["id"]]["xmins"] >= 45
         ]
-        rows.sort(key=lambda p: -sum(proj[p["id"]]["xp"].values()))
+        rows.sort(key=lambda p: -sum(proj[p["id"]]["xp"][g] for g in gws))
         gw_cols = " | ".join(f"GW{g}" for g in gws)
         head = f"| Player | Price | {gw_cols} | Total | Fixtures |"
         lines.append(f"### {pos}\n")
@@ -662,7 +662,7 @@ def renderTargets(bootstrap, fixtures, proj, gws, lines, per_pos=10):
             xp = proj[p["id"]]["xp"]
             fx = "; ".join(fixtureText(p["team"], g, opp, teams) for g in gws)
             cells = " | ".join(f"{xp[g]:.1f}" for g in gws)
-            total = sum(xp.values())
+            total = sum(xp[g] for g in gws)
             lines.append(
                 f"| {p['web_name']} ({teams[p['team']]}) | {p['now_cost'] / 10:.1f} | "
                 f"{cells} | {total:.1f} | {fx} |"
@@ -703,7 +703,7 @@ def renderPlan(squad, bootstrap, fixtures, proj, gws, lines, eval_gws=None):
     gw_cols = " | ".join(f"GW{g}" for g in gws)
     lines.append(f"| Player | Sell | {gw_cols} | Total |")
     lines.append("|" + "---|" * (len(gws) + 3))
-    order = lambda i: (players[i]["element_type"], -sum(proj[i]["xp"].values()))
+    order = lambda i: (players[i]["element_type"], -sum(proj[i]["xp"][g] for g in gws))
     for pid in sorted(ids, key=order):
         p = players[pid]
         xp = proj[pid]["xp"]
@@ -711,7 +711,7 @@ def renderPlan(squad, bootstrap, fixtures, proj, gws, lines, eval_gws=None):
         flag = "" if p["status"] == "a" else f" [{p['status']}: {p['news'] or 'doubt'}]"
         lines.append(
             f"| {label(p, teams)}{flag} | {sell[pid] / 10:.1f} | {cells} | "
-            f"{sum(xp.values()):.1f} |"
+            f"{sum(xp[g] for g in gws):.1f} |"
         )
     lines.append("")
 
