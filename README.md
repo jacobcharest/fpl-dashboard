@@ -86,6 +86,21 @@ file from the page - see the instructions at the top of that file.
 Projections are stored per gameweek, so the sidebar horizon re-sums them without re-importing.
 With no projections loaded the columns are absent entirely rather than showing empty cells.
 
+## Transfer plan
+
+With no projections CSV to hand, `scripts/transfer_plan.py` builds a multi-week plan straight
+from the FPL API: its own `ep_next`/form projection blended with a fixture-adjusted xG/xA/DC
+model, then a greedy week-by-week search over transfers (bank, 3-per-club, hits, free
+transfers all respected):
+
+```bash
+backend/.venv/bin/python backend/scripts/transfer_plan.py --entry 1234567 --weeks 4 --out plan.md
+```
+
+Without `--entry` it prints the top projected players per position over the horizon. Picks
+come from the public API, so the squad it plans from is the one that played the most recent
+started gameweek - run it before making transfers, not after.
+
 ## Run
 
 ```bash
