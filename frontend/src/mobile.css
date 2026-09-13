@@ -1,0 +1,200 @@
+/* Phone layout. Everything here applies only under 720px, so the desktop layout is untouched -
+   the same one-file, one-breakpoint approach as the fantasy-football dashboard's mobile sheet.
+   Imported last (main.tsx) so it sits after every component stylesheet in the cascade. */
+@media (max-width: 720px) {
+  .app {
+    padding: 12px 10px 32px;
+  }
+
+  /* Toolbar: title on its own line, then the controls in two columns. Bottom-aligned so the
+     bare buttons line up with the selects under their labels. */
+  .toolbar {
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 10px 12px;
+    margin-bottom: 12px;
+    padding-bottom: 12px;
+  }
+
+  .toolbar h1 {
+    flex-basis: 100%;
+    font-size: 20px;
+  }
+
+  .toolbar label {
+    flex: 1 1 calc(50% - 6px);
+    min-width: 0;
+  }
+
+  /* 16px is the size below which iOS Safari zooms the page when a field is focused. */
+  .toolbar select,
+  .toolbar input[type="number"],
+  .global-range input[type="number"],
+  .gw-input,
+  .filter-cell input,
+  .chart-card-header select,
+  .chart-config select,
+  .chart-config input[type="number"],
+  .entity-picker-search {
+    font-size: 16px;
+  }
+
+  .toolbar select,
+  .toolbar input[type="number"] {
+    width: 100%;
+    min-height: 40px;
+  }
+
+  .my-team-control input {
+    margin-left: 0;
+  }
+
+  .refresh-btn,
+  .sync-btn {
+    flex: 1 1 calc(50% - 6px);
+    min-height: 40px;
+    padding: 8px 10px;
+  }
+
+  /* Fetch takes a full row so that "My team id" and its Sync button share the next one. */
+  .refresh-btn {
+    flex-basis: 100%;
+  }
+
+  .refresh-message,
+  .loading {
+    flex-basis: 100%;
+    max-width: none;
+  }
+
+  /* Filter bar: each section spans the width; the team list drops to one column. */
+  .filter-bar-row {
+    gap: 8px;
+  }
+
+  .filter-bar-row .sidebar-section {
+    flex: 1 1 100%;
+    padding: 10px;
+    gap: 10px;
+  }
+
+  .global-range input[type="number"] {
+    width: 56px;
+    min-height: 36px;
+  }
+
+  .gw-input {
+    width: 42px;
+    padding: 4px 2px;
+  }
+
+  .bulk-buttons button,
+  .global-range button,
+  .teams-toggle {
+    min-height: 36px;
+  }
+
+  .team-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .team-row {
+    padding: 6px 4px;
+  }
+
+  /* Tables: tighter cells, filter inputs stacked so columns stay narrow, and most of the
+     viewport for rows. The first column is already sticky, so swiping sideways keeps the name. */
+  .data-table {
+    font-size: 13px;
+  }
+
+  .data-table th,
+  .data-table td {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+
+  .data-table-scroll {
+    max-height: calc(100vh - 140px);
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .filter-row th {
+    padding: 4px 6px;
+  }
+
+  .filter-toggle {
+    padding: 4px 8px;
+    font-size: 12px;
+  }
+
+  .filter-cell input {
+    display: block;
+    width: 54px;
+    margin: 2px 0;
+    padding: 4px 5px;
+  }
+
+  /* Secondary columns hidden on phones - 25 columns is a lot to swipe through. BPS and the
+     ICT family are FPL's own composites of the stats that stay visible. */
+  .data-table [data-col="bps"],
+  .data-table [data-col="influence"],
+  .data-table [data-col="creativity"],
+  .data-table [data-col="threat"],
+  .data-table [data-col="ict_index"] {
+    display: none;
+  }
+
+  /* Projections panel and charts: controls stack above the content. */
+  .projections-panel,
+  .charts-panel {
+    margin-top: 20px;
+    padding-top: 14px;
+  }
+
+  .projections-panel-header,
+  .charts-panel-header {
+    flex-wrap: wrap;
+    gap: 6px 12px;
+  }
+
+  .projections-filter .sidebar-section {
+    flex: 1 1 100%;
+  }
+
+  .chart-card {
+    padding: 12px;
+    border-radius: var(--radius-md);
+  }
+
+  .chart-card-header {
+    flex-wrap: wrap;
+  }
+
+  .chart-card-body {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .chart-config {
+    width: 100%;
+  }
+
+  .entity-picker {
+    width: 100%;
+  }
+
+  .chart-config label.entity-picker-row {
+    font-size: 14px;
+    padding: 6px 5px;
+  }
+
+  .entity-picker-list {
+    max-height: 200px;
+  }
+
+  .position-filter-toggle {
+    font-size: 13px;
+    padding: 6px 10px;
+  }
+}

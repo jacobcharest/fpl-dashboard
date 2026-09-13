@@ -56,17 +56,6 @@
   min-width: 0;
 }
 
-.proj-source {
-  background: var(--surface);
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 5px 7px;
-  font-size: 12px;
-  margin-bottom: 6px;
-}
-
-
 .projections-note {
   padding: 10px 14px;
   border: 1px dashed var(--border-strong);

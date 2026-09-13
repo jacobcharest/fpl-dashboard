@@ -41,6 +41,18 @@
   color: var(--text-dim);
 }
 
+/* The picker lives inside .chart-config, whose `label` rule (column layout, uppercase, faint)
+   would otherwise win over .entity-picker-row and stack each checkbox above its name. */
+.chart-config label.entity-picker-row {
+  flex-direction: row;
+  gap: 7px;
+  font-size: 12px;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: normal;
+  color: var(--text-dim);
+}
+
 .entity-picker-row:hover {
   background: var(--surface-3);
   color: var(--text);
