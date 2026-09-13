@@ -33,6 +33,7 @@ from app.queries import (
     TableFilters,
     TeamRange,
     query_players,
+    query_projections,
     query_series,
     query_teams,
 )
@@ -156,8 +157,12 @@ def _to_table_filters(req: TableRequest) -> TableFilters:
 @app.get("/api/seasons")
 def list_seasons():
     conn = get_connection()
+    # played_through: latest gameweek with any stats, so the UI can default forward-looking
+    # views (projections) to "next week" without a round-trip to the FPL API.
     rows = conn.execute(
-        "SELECT id, label, backfilled, is_placeholder FROM seasons ORDER BY id"
+        """SELECT s.id, s.label, s.backfilled, s.is_placeholder,
+                  (SELECT MAX(round) FROM player_gw_stats g WHERE g.season_id = s.id) AS played_through
+           FROM seasons s ORDER BY s.id"""
     ).fetchall()
     conn.close()
     return [dict(r) for r in rows]
@@ -257,6 +262,17 @@ def list_projection_sources(season_id: str):
     conn = get_connection()
     try:
         return projection_sources(conn, season_id)
+    finally:
+        conn.close()
+
+
+@app.post("/api/projections/table")
+def projections_table(req: PlayerTableRequest):
+    """Per-gameweek breakdown of a projection source for the Projections panel. Takes the same
+    body as /api/players so the sidebar's team/position filters carry over unchanged."""
+    conn = get_connection()
+    try:
+        return query_projections(conn, _to_table_filters(req))
     finally:
         conn.close()
 

@@ -225,6 +225,81 @@ def query_players(conn, filters: TableFilters, per90: bool, starts_only: bool) -
     return _records(agg[columns])
 
 
+def query_projections(conn, filters: TableFilters) -> dict:
+    """One row per player for a projection source over the requested gameweek window: xP, xG,
+    xA summed; xCS and xDC summed too, so they read as expected clean sheets / expected
+    defensive-contribution hits over the window rather than a per-match probability; xMins
+    averaged (same rule as _projection_totals, so the board's number is reproducible here);
+    plus xP per projected gameweek and that rate per £m of price, for value comparisons.
+    Also reports the span the source actually covers so the UI can say so.
+
+    Rows follow the sidebar's team include/exclude and the panel's position filter, but not the
+    per-team gameweek windows: those slice history, and projections are the other direction."""
+    empty = {"gameweeks": [], "played_through": None, "rows": []}
+    if not (filters.projection_source and filters.projection_start_gw and filters.projection_end_gw):
+        return empty
+
+    gameweeks = [int(r[0]) for r in conn.execute(
+        "SELECT DISTINCT round FROM player_projections WHERE season_id = ? AND source = ? ORDER BY round",
+        (filters.season_id, filters.projection_source),
+    )]
+    if not gameweeks:
+        return empty
+
+    player_gw, _fixtures, teams, players = load_season_frames(conn, filters.season_id)
+    # Gameweeks with any stats in the DB have already been played, so the UI can flag them.
+    played_through = int(player_gw["round"].max()) if not player_gw.empty else None
+
+    totals = pd.read_sql_query(
+        """SELECT player_code, SUM(xp) AS xp_total, AVG(xmins) AS xmins_avg, COUNT(*) AS gw_count,
+                  SUM(xg) AS xg, SUM(xa) AS xa, SUM(xcs) AS xcs, SUM(xdc) AS xdc
+           FROM player_projections
+           WHERE season_id = ? AND source = ? AND round BETWEEN ? AND ?
+           GROUP BY player_code""",
+        conn,
+        params=(filters.season_id, filters.projection_source,
+                filters.projection_start_gw, filters.projection_end_gw),
+    )
+    if totals.empty:
+        # The window misses the source entirely; still list its players so the panel isn't blank.
+        totals = pd.read_sql_query(
+            "SELECT DISTINCT player_code FROM player_projections WHERE season_id = ? AND source = ?",
+            conn, params=(filters.season_id, filters.projection_source),
+        )
+        for c in ("xp_total", "xmins_avg", "gw_count", "xg", "xa", "xcs", "xdc"):
+            totals[c] = float("nan")
+
+    # Team and price come from the season roster, not from stats rows: a player who hasn't
+    # played a minute yet (injured, new signing, benched) still has a projection worth seeing.
+    # The latest gameweek price overrides the season-start one once the player has featured.
+    roster = pd.read_sql_query(
+        "SELECT player_code, team_code, start_cost / 10.0 AS price FROM player_season WHERE season_id = ?",
+        conn, params=(filters.season_id,),
+    )
+    latest = (player_gw.sort_values("round").groupby("player_code")["price"].last() / 10.0).rename("latest_price")
+    df = totals.merge(players, on="player_code", how="inner").merge(roster, on="player_code", how="left")
+    df = df.merge(latest, left_on="player_code", right_index=True, how="left")
+    df["price"] = df["latest_price"].fillna(df["price"])
+    df = df.merge(teams[["team_code", "name"]].rename(columns={"name": "team_name"}), on="team_code", how="left")
+
+    # Per-gameweek rate over the gameweeks the source actually projected inside the window (not the
+    # window length, so a partially covered window isn't diluted), and that rate per £m of current
+    # price. Computed before filtering/sorting so both work on them like any other column.
+    df["xp_per_gw"] = df["xp_total"] / df["gw_count"]
+    df["xp_per_gw_per_m"] = (df["xp_per_gw"] / df["price"]).where(df["price"] > 0)
+
+    included = {t.team_code for t in filters.teams}
+    df = df[df["team_code"].isin(included)]
+    if filters.positions is not None:
+        df = df[df["position"].isin(filters.positions)]
+    df = _apply_numeric_filters(df, filters.filters)
+    df = _apply_sort(df, filters.sort, default_column="xp_total")
+
+    columns = ["player_code", "web_name", "team_name", "position", "price",
+               "xp_per_gw", "xp_per_gw_per_m", "xp_total", "xmins_avg", "xg", "xa", "xcs", "xdc"]
+    return {"gameweeks": gameweeks, "played_through": played_through, "rows": _records(df[columns])}
+
+
 def _fixture_team_xg(player_gw: pd.DataFrame) -> pd.Series:
     return player_gw.groupby(["fixture_id", "team_code"])["expected_goals"].sum()
 

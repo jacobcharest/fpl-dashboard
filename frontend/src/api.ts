@@ -5,6 +5,7 @@ import type {
   PlayerTableRequest,
   MyTeam,
   ProjectionSource,
+  ProjectionTable,
   MyTeamSyncResult,
   Season,
   SeriesPoint,
@@ -61,4 +62,8 @@ export async function syncMyTeam(seasonId: string, entryId: number): Promise<MyT
 
 export async function getProjectionSources(seasonId: string): Promise<ProjectionSource[]> {
   return (await client.get(`/api/projections/${seasonId}`)).data;
+}
+
+export async function getProjectionTable(req: PlayerTableRequest): Promise<ProjectionTable> {
+  return (await client.post("/api/projections/table", req)).data;
 }

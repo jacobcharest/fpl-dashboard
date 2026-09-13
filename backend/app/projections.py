@@ -32,7 +32,19 @@ CODE_COLS = ("code", "player_code")
 TEAM_COLS = ("team", "team_short", "club", "team_name")
 # Wide gameweek columns: "1_Pts", "gw1", "gw_1", "1_xMins", ...
 GW_PTS_RE = re.compile(r"^(?:gw[_ ]?)?(\d{1,2})(?:_)?(?:pts|xp|points)?$|^(\d{1,2})_(?:pts|xp|points)$", re.I)
-GW_MINS_RE = re.compile(r"^(?:gw[_ ]?)?(\d{1,2})_(?:xmins|mins|minutes)$", re.I)
+# The other per-gameweek projections a source may carry, keyed by the stored column name.
+# Each pattern captures the gameweek. Wide headers look like "5_xG"; long files use a plain
+# column of the same name.
+EXTRA_STATS = {
+    "xmins": ("xmins|mins|minutes", ("xmins", "mins", "minutes")),
+    "xg": ("xg|expected_goals", ("xg", "expected_goals")),
+    "xa": ("xa|expected_assists", ("xa", "expected_assists")),
+    "xcs": ("xcs|cs|clean_sheet|clean_sheets", ("xcs", "cs", "clean_sheet", "clean_sheets")),
+    "xdc": ("xdc|dc|defcon|defcons|defensive_contribution", ("xdc", "dc", "defcon", "defcons", "defensive_contribution")),
+}
+GW_EXTRA_RE = {
+    stat: re.compile(rf"^(?:gw[_ ]?)?(\d{{1,2}})_(?:{alts})$", re.I) for stat, (alts, _) in EXTRA_STATS.items()
+}
 
 
 def fetch_code_index() -> dict:
@@ -57,7 +69,8 @@ def _num(v):
 
 
 def parse_csv(path: str) -> tuple[list[dict], list[str]]:
-    """Returns (rows, warnings). Each row: {name|code, team, gw, xp, xmins}."""
+    """Returns (rows, warnings). Each row: {name|code, team, gw, xp, xmins, xg, xa, xcs, xdc};
+    the extras are None when the file doesn't carry them."""
     with open(path, newline="", encoding="utf-8-sig") as f:
         reader = csv.DictReader(f)
         raw = list(reader)
@@ -75,7 +88,9 @@ def parse_csv(path: str) -> tuple[list[dict], list[str]]:
     # Long format: an explicit gameweek column plus a points column.
     gw_col = next((lower[c] for c in ("gw", "round", "gameweek", "event") if c in lower), None)
     pts_col = next((lower[c] for c in ("xp", "pts", "points", "xpts") if c in lower), None)
-    mins_col = next((lower[c] for c in ("xmins", "mins", "minutes") if c in lower), None)
+    extra_cols = {
+        stat: next((lower[c] for c in names if c in lower), None) for stat, (_, names) in EXTRA_STATS.items()
+    }
 
     out, warnings = [], []
     if gw_col and pts_col:
@@ -83,19 +98,26 @@ def parse_csv(path: str) -> tuple[list[dict], list[str]]:
             gw, xp = _num(r.get(gw_col)), _num(r.get(pts_col))
             if gw is None or xp is None:
                 continue
+            extras = {stat: _num(r.get(col)) if col else None for stat, col in extra_cols.items()}
             out.append(dict(name=r.get(name_col), code=r.get(code_col), team=r.get(team_col),
-                            gw=int(gw), xp=xp, xmins=_num(r.get(mins_col)) if mins_col else None))
+                            gw=int(gw), xp=xp, **extras))
         return out, warnings
 
     # Wide format: sniff per-gameweek columns out of the header.
-    pts_by_gw, mins_by_gw = {}, {}
+    pts_by_gw: dict[int, str] = {}
+    extra_by_gw: dict[str, dict[int, str]] = {stat: {} for stat in EXTRA_STATS}
     for h in headers:
         hs = h.strip()
         if hs in (name_col, code_col, team_col):
             continue
-        m = GW_MINS_RE.match(hs)
-        if m:
-            mins_by_gw[int(m.group(1))] = h
+        matched = False
+        for stat, pattern in GW_EXTRA_RE.items():
+            m = pattern.match(hs)
+            if m:
+                extra_by_gw[stat][int(m.group(1))] = h
+                matched = True
+                break
+        if matched:
             continue
         m = GW_PTS_RE.match(hs)
         if m:
@@ -109,9 +131,11 @@ def parse_csv(path: str) -> tuple[list[dict], list[str]]:
             xp = _num(r.get(col))
             if xp is None:
                 continue
-            mins = _num(r.get(mins_by_gw[gw])) if gw in mins_by_gw else None
+            extras = {
+                stat: _num(r.get(cols[gw])) if gw in cols else None for stat, cols in extra_by_gw.items()
+            }
             out.append(dict(name=r.get(name_col), code=r.get(code_col), team=r.get(team_col),
-                            gw=gw, xp=xp, xmins=mins))
+                            gw=gw, xp=xp, **extras))
     return out, warnings
 
 
@@ -140,15 +164,16 @@ def import_projections(conn, season_id: str, csv_path: str, source: str = "fplre
                 else:
                     unmatched.add(r.get("name"))
         if code is not None:
-            resolved.append((season_id, code, r["gw"], source, r["xp"], r["xmins"]))
+            resolved.append((season_id, code, r["gw"], source, r["xp"],
+                             r["xmins"], r["xg"], r["xa"], r["xcs"], r["xdc"]))
 
     now = datetime.now(timezone.utc).isoformat()
     cur = conn.cursor()
     cur.execute("DELETE FROM player_projections WHERE season_id = ? AND source = ?", (season_id, source))
     cur.executemany(
         """INSERT OR REPLACE INTO player_projections
-               (season_id, player_code, round, source, xp, xmins, imported_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?)""",
+               (season_id, player_code, round, source, xp, xmins, xg, xa, xcs, xdc, imported_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         [row + (now,) for row in resolved],
     )
     conn.commit()

@@ -1,10 +1,52 @@
-.filter-sidebar {
-  width: 260px;
-  flex-shrink: 0;
+.filter-bar {
+  width: 100%;
   font-size: 13px;
   color: var(--text-dim);
-  overflow-y: auto;
-  max-height: calc(100vh - 120px);
+  margin-bottom: 12px;
+}
+
+.filter-bar-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: stretch;
+}
+
+/* A section laid out as one line of controls: title, then the controls, all vertically centred. */
+.filter-inline {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-bottom: 0;
+}
+
+.filter-inline .section-title,
+.filter-inline .bulk-buttons {
+  margin-bottom: 0;
+}
+
+.teams-toggle {
+  background: transparent;
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 5px 9px;
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.teams-toggle:hover {
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+.teams-excluded {
+  color: var(--warning);
+  font-weight: 600;
 }
 
 .sidebar-section {
@@ -73,10 +115,27 @@
 }
 
 .team-list {
-  max-height: 480px;
-  overflow-y: auto;
-  padding: 4px;
+  margin-top: 12px;
+  padding: 8px 10px 6px;
   accent-color: var(--accent);
+}
+
+.team-legend {
+  color: var(--text-faint);
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 0 4px 6px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 4px;
+}
+
+/* As many team columns as the width allows; each row keeps the sidebar-era column layout. */
+.team-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(215px, 1fr));
+  column-gap: 14px;
 }
 
 .team-row {
@@ -91,21 +150,6 @@
 
 .team-row:hover {
   background: var(--surface-2);
-}
-
-.team-row-header {
-  color: var(--text-faint);
-  font-size: 10.5px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  border-bottom: 1px solid var(--border);
-  padding-bottom: 6px;
-  margin-bottom: 3px;
-}
-
-.team-row-header:hover {
-  background: none;
 }
 
 .team-name {
@@ -147,15 +191,4 @@ input[type="number"] {
   border: 1px solid var(--border);
   border-radius: 4px;
   padding: 3px 5px;
-}
-
-.proj-source {
-  width: 100%;
-  background: var(--surface);
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 5px 7px;
-  font-size: 12px;
-  margin-bottom: 6px;
 }

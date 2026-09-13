@@ -11,7 +11,15 @@
 //   4. import the downloaded file:
 //        backend/.venv/bin/python backend/scripts/import_projections.py 2026-27 ~/Downloads/fplreview.csv
 //
-// The free tier only projects a few gameweeks ahead; premium extends the horizon to 14.
+// The free tier projects six gameweeks ahead; premium extends the horizon to 14.
+//
+// Columns per gameweek, all from FPL Review's per-fixture projection object:
+//   N_Pts    expected FPL points            N_xG   expected goals
+//   N_xMins  expected minutes               N_xA   expected assists
+//   N_xCS    clean sheet probability        N_xDC  probability of defensive-contribution points
+//   N_opp    opponent(s) with (H)/(A)
+// The importer stores all but opp (which is for reading the file by eye). `code` is FPL's
+// stable player id, so the import matches on it and never has to guess by name.
 (() => {
   const fiberOf = (el) => { for (const k in el) if (k.startsWith("__reactFiber$")) return el[k]; };
   let f = fiberOf(document.querySelector("tr")), all = null, depth = 0;
@@ -25,18 +33,25 @@
   const POS = { 1: "GK", 2: "DEF", 3: "MID", 4: "FWD" };
   const gws = [...new Set(all.flatMap((p) => Object.keys(p.projections || {})))]
     .map(Number).sort((a, b) => a - b);
-  const esc = (v) => (/[",]/.test(v) ? `"${String(v).replace(/"/g, '""')}"` : v);
-  const r2 = (x) => Math.round((x || 0) * 100) / 100;
+  const esc = (v) => (v == null ? "" : /[",]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v));
+  const r = (x, d) => (x == null || Number.isNaN(x) ? "" : Math.round(x * 10 ** d) / 10 ** d);
+  // A gameweek's fixtures are an array: one entry normally, two in a double, none in a blank.
+  const sum = (fx, k) => fx.reduce((s, x) => s + (x?.[k] || 0), 0);
 
-  const header = ["name", "team", "pos", "price",
-    ...gws.map((g) => `${g}_Pts`), ...gws.map((g) => `${g}_xMins`)];
+  const perGw = ["Pts", "xMins", "xG", "xA", "xCS", "xDC", "opp"];
+  const header = ["code", "name", "team", "pos", "price", "ownership",
+    ...gws.flatMap((g) => perGw.map((s) => `${g}_${s}`))];
   const lines = [header.join(",")];
   for (const p of all) {
-    lines.push([
-      esc(p.web_name), p.team_short, POS[p.element_type], (p.now_cost / 10).toFixed(1),
-      ...gws.map((g) => r2(p.projections?.[g])),
-      ...gws.map((g) => Math.round(p.fixtures?.[g]?.[0]?.xMins || 0)),
-    ].join(","));
+    const row = [p.code, esc(p.web_name), p.team_short, POS[p.element_type],
+      (p.now_cost / 10).toFixed(1), p.selected_by_percent];
+    for (const g of gws) {
+      const fx = p.fixtures?.[g] || [];
+      const opp = fx.map((x) => `${x.opponent}(${x.isHome ? "H" : "A"})`).join("+");
+      row.push(r(p.projections?.[g], 2), r(sum(fx, "xMins"), 0), r(sum(fx, "xG"), 3),
+        r(sum(fx, "xA"), 3), r(sum(fx, "xCS"), 3), r(sum(fx, "livdc"), 3), esc(opp));
+    }
+    lines.push(row.join(","));
   }
 
   const blob = new Blob([lines.join("\n")], { type: "text/csv" });

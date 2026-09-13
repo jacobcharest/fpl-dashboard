@@ -126,14 +126,14 @@
   border-radius: 4px;
 }
 
+/* Filters stack above the table so the table gets the full width. */
 .main-layout {
   display: flex;
-  gap: 18px;
-  align-items: flex-start;
+  flex-direction: column;
+  gap: 0;
 }
 
 .main-layout > div {
-  flex: 1;
   min-width: 0;
 }
 

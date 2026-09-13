@@ -119,6 +119,10 @@ CREATE TABLE IF NOT EXISTS player_projections (
     source      TEXT NOT NULL,      -- e.g. 'fplreview'
     xp          REAL,               -- projected FPL points
     xmins       REAL,               -- projected minutes; the availability signal, often the point
+    xg          REAL,               -- projected expected goals for the gameweek
+    xa          REAL,               -- projected expected assists
+    xcs         REAL,               -- clean sheet probability
+    xdc         REAL,               -- probability of hitting the defensive-contribution threshold
     imported_at TEXT,
     PRIMARY KEY (season_id, player_code, round, source)
 );

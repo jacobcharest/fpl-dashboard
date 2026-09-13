@@ -44,7 +44,9 @@ fixture). Team standings, xG aggregates, per-90 conversion, and filtered stats a
 
 ## Filter semantics
 
-- Left panel: every team in the selected season, each with an include/exclude checkbox and its
+- Filter bar (originally a left panel; moved above the tables in Sept 2026 so both the stats
+  board and the projections table get the full width - the team list wraps into columns and can
+  be hidden): every team in the selected season, each with an include/exclude checkbox and its
   own gameweek-range (two inputs). Global "include all" / "exclude all" buttons and a global
   gameweek-range input that, when set, applies to all teams at once — but is an "apply then
   override" action, not a persistent link. Editing one team's range afterward doesn't fight
