@@ -1,0 +1,20 @@
+[Unit]
+Description=FPL dashboard socket (:8767)
+Documentation=https://www.freedesktop.org/software/systemd/man/systemd.socket.html
+
+[Socket]
+# systemd owns this port and starts fpl-dashboard.service on the FIRST
+# connection, so nothing runs until the page is actually opened. The
+# connection that triggers the start waits in this socket's backlog and is
+# served by the process it started.
+#
+# All interfaces, not 127.0.0.1, so the phone and the other laptop reach it
+# over Tailscale at http://fantasy-laptop:8767/ (same pattern as
+# fantasy-draft on :8766).
+#
+# Deliberately NOT 8000/5173: ./run.sh uses those, and if systemd held :8000
+# permanently every ./run.sh would refuse to start on a busy port.
+ListenStream=8767
+
+[Install]
+WantedBy=sockets.target

@@ -1,0 +1,21 @@
+[Unit]
+Description=FPL dashboard (on-demand, single-port, idle-stop)
+Requires=fpl-dashboard.socket
+After=fpl-dashboard.socket
+
+[Service]
+Type=simple
+WorkingDirectory=%h/fpl-dashboard
+# Stop after this many seconds with no HTTP request (the app's idle watchdog
+# sends itself SIGTERM). The socket keeps listening, so the next visit
+# respawns this transparently. Set 0 to disable idle-stop.
+Environment=FPL_IDLE_TIMEOUT=900
+# uvicorn binds to the systemd-passed socket (fd 3). No --reload: that forks a
+# supervisor and the worker would not be the pid the socket was handed to.
+# The backend also serves frontend/dist same-origin, so this one port is the
+# whole app - rebuild with `npm run build` in frontend/ after frontend changes.
+ExecStart=%h/fpl-dashboard/backend/.venv/bin/uvicorn --fd 3 --app-dir backend app.main:app
+
+[Install]
+# Not enabled directly - the socket starts it on demand.
+WantedBy=default.target

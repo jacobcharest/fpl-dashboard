@@ -3,6 +3,7 @@ export interface Season {
   label: string;
   backfilled: number;
   is_placeholder: number;
+  played_through: number | null; // latest gameweek with stats; null before the season starts
 }
 
 export interface TeamMeta {
@@ -62,6 +63,7 @@ export interface PlayerRow {
   team_name: string;
   position: string;
   price: number;
+  selected_by_percent: number | null; // ownership %; null until the season is (re)fetched
   minutes: number;
   total_points: number;
   goals_scored: number;
@@ -130,6 +132,29 @@ export interface ProjectionSource {
   first_gw: number;
   last_gw: number;
   imported_at: string | null;
+}
+
+/** One player in the Projections panel, totalled over the panel's Weeks range. */
+export interface ProjectionRow {
+  player_code: number;
+  web_name: string;
+  team_name: string;
+  position: string;
+  price: number | null;
+  xp_per_gw: number | null; // xp_total / gameweeks the source projected inside the range
+  xp_per_gw_per_m: number | null; // xp_per_gw / price; null when the price is unknown
+  xp_total: number | null; // summed over the range
+  xmins_avg: number | null; // averaged over the range
+  xg: number | null; // summed over the range
+  xa: number | null;
+  xcs: number | null; // expected clean sheets over the range (sum of per-match probabilities)
+  xdc: number | null; // expected defensive-contribution hits over the range
+}
+
+export interface ProjectionTable {
+  gameweeks: number[]; // every gameweek the source covers, for the coverage note
+  played_through: number | null; // latest gameweek with stats in the DB; earlier GWs are history
+  rows: ProjectionRow[];
 }
 
 /** Horizon the player table sums projections over. null source = projections off. */

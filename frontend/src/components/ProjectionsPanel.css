@@ -1,0 +1,83 @@
+.projections-panel {
+  margin-top: 28px;
+  border-top: 1px solid var(--border);
+  padding-top: 18px;
+}
+
+.projections-panel-header {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.projections-panel-header h2 {
+  font-size: 16px;
+  font-weight: 700;
+  margin: 0;
+  color: var(--text);
+}
+
+.projections-meta {
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
+/* Filters sit in a bar above the table, like the stats filters above the board, so the
+   table gets the full width. */
+.projections-layout {
+  display: flex;
+  flex-direction: column;
+}
+
+.projections-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 13px;
+  color: var(--text-dim);
+  margin-bottom: 12px;
+}
+
+.projections-filter .sidebar-section {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-bottom: 0;
+}
+
+.projections-filter .section-title,
+.projections-filter .global-range {
+  margin: 0;
+}
+
+.projections-table {
+  min-width: 0;
+}
+
+.proj-source {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 5px 7px;
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+
+
+.projections-note {
+  padding: 10px 14px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-md);
+  color: var(--text-dim);
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+
+/* The panel sits below the main board, so a viewport-tall table would push the charts out of
+   reach; cap it lower than the board's. */
+.projections-panel .data-table-scroll {
+  max-height: 520px;
+}

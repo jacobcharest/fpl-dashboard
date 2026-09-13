@@ -1,9 +1,30 @@
+"""FastAPI entrypoint.
+
+Two behaviours are opt-in so `./run.sh` (uvicorn on :8000, Vite on :5173 proxying /api) is
+unaffected:
+
+- If `<repo_root>/frontend/dist` exists, the built SPA is served same-origin at `/`, so the
+  whole app lives on one port. `run.sh` never builds, so this is dormant in development.
+- If `FPL_IDLE_TIMEOUT` (seconds) is set > 0, a watchdog stops the process after that long
+  without an HTTP request. With systemd socket activation (see `systemd/`) that gives
+  on-demand start + idle stop: the socket keeps listening and the next visit respawns us.
+"""
+
+import asyncio
+import os
+import signal
+import time
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Literal
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.responses import Response
+from starlette.types import Scope
 
 from app.db import get_connection, init_db
 from app.queries import (
@@ -12,6 +33,7 @@ from app.queries import (
     TableFilters,
     TeamRange,
     query_players,
+    query_projections,
     query_series,
     query_teams,
 )
@@ -20,13 +42,39 @@ from app.projections import import_projections, projection_sources
 from app.refresh import backfill_season, seed_seasons
 
 
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
+# Monotonic timestamp of the last HTTP request; the idle watchdog reads this.
+_last_activity = time.monotonic()
+
+
+async def _idle_watchdog(timeout: float) -> None:
+    """Stop the process after `timeout` seconds with no requests.
+
+    Sends SIGTERM to ourselves so uvicorn shuts down cleanly. Under systemd socket activation
+    the listening socket outlives us, so the next request transparently respawns the service.
+    """
+    poll = max(1.0, min(timeout, 30.0))
+    while True:
+        await asyncio.sleep(poll)
+        if time.monotonic() - _last_activity > timeout:
+            os.kill(os.getpid(), signal.SIGTERM)
+            return
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
     conn = get_connection()
     seed_seasons(conn)
     conn.close()
-    yield
+    timeout = float(os.environ.get("FPL_IDLE_TIMEOUT", "0") or "0")
+    task = asyncio.create_task(_idle_watchdog(timeout)) if timeout > 0 else None
+    try:
+        yield
+    finally:
+        if task is not None:
+            task.cancel()
 
 
 app = FastAPI(title="FPL Dashboard API", lifespan=lifespan)
@@ -37,6 +85,13 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def _track_activity(request: Request, call_next):
+    global _last_activity
+    _last_activity = time.monotonic()
+    return await call_next(request)
 
 
 class MyTeamSyncRequest(BaseModel):
@@ -102,8 +157,12 @@ def _to_table_filters(req: TableRequest) -> TableFilters:
 @app.get("/api/seasons")
 def list_seasons():
     conn = get_connection()
+    # played_through: latest gameweek with any stats, so the UI can default forward-looking
+    # views (projections) to "next week" without a round-trip to the FPL API.
     rows = conn.execute(
-        "SELECT id, label, backfilled, is_placeholder FROM seasons ORDER BY id"
+        """SELECT s.id, s.label, s.backfilled, s.is_placeholder,
+                  (SELECT MAX(round) FROM player_gw_stats g WHERE g.season_id = s.id) AS played_through
+           FROM seasons s ORDER BY s.id"""
     ).fetchall()
     conn.close()
     return [dict(r) for r in rows]
@@ -207,6 +266,17 @@ def list_projection_sources(season_id: str):
         conn.close()
 
 
+@app.post("/api/projections/table")
+def projections_table(req: PlayerTableRequest):
+    """Per-gameweek breakdown of a projection source for the Projections panel. Takes the same
+    body as /api/players so the sidebar's team/position filters carry over unchanged."""
+    conn = get_connection()
+    try:
+        return query_projections(conn, _to_table_filters(req))
+    finally:
+        conn.close()
+
+
 @app.post("/api/projections/{season_id}/import")
 def projections_import(season_id: str, req: ProjectionImportRequest):
     """Imports a projections CSV already on disk. Layout is sniffed rather than fixed - see
@@ -221,3 +291,33 @@ def projections_import(season_id: str, req: ProjectionImportRequest):
         raise HTTPException(status_code=400, detail=str(e))
     finally:
         conn.close()
+
+
+class SPAStaticFiles(StaticFiles):
+    """Static files with single-page-app fallback: any path that isn't a real file resolves to
+    index.html. Real /api routes are matched before this mount."""
+
+    async def get_response(self, path: str, scope: Scope) -> Response:
+        try:
+            response = await super().get_response(path, scope)
+        except StarletteHTTPException as exc:
+            # Unknown /api/* paths must stay a real JSON 404, not the HTML shell.
+            if exc.status_code == 404 and not path.startswith("api/"):
+                response = await super().get_response("index.html", scope)
+                response.headers["cache-control"] = "no-cache"
+                return response
+            raise
+        if path.startswith("assets/"):
+            # Vite content-hashes these filenames - cache forever.
+            response.headers["cache-control"] = "public, max-age=31536000, immutable"
+        else:
+            # index.html must revalidate on every load, or browsers keep a pre-rebuild bundle.
+            response.headers["cache-control"] = "no-cache"
+        return response
+
+
+# Serve the built SPA same-origin when it exists (the systemd instance). Mounted last so
+# /api/* keeps priority. Absent in dev -> no-op.
+_dist = REPO_ROOT / "frontend" / "dist"
+if _dist.is_dir():
+    app.mount("/", SPAStaticFiles(directory=_dist, html=True), name="spa")

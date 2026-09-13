@@ -68,14 +68,14 @@ same button again after kickoff to pull the squad. Re-sync whenever you make tra
 
 The dashboard can show forward-looking expected points beside the historical stats. Import a
 projections CSV and the player table gains **xP** and **xMins** columns, summed over a gameweek
-horizon you choose in the sidebar:
+window you choose in the Projections panel:
 
 ```bash
 backend/.venv/bin/python backend/scripts/import_projections.py 2026-27 ~/Downloads/fplreview.csv
 ```
 
 Pass `--source <name>` to hold more than one model at once (they appear as separate options in
-the sidebar's Projections dropdown, so you can compare them).
+the Projections panel's Source dropdown, so you can compare them).
 
 The parser sniffs the layout rather than requiring a fixed one - long format (a `gw` column plus
 `xp`) and wide format (`1_Pts`, `2_Pts`, ... or `gw1`, `gw2`, ...) both work, with optional
@@ -88,8 +88,21 @@ rather than guessed at.
 the free tier the download is disabled, so `backend/scripts/fplreview_export.js` builds the same
 file from the page - see the instructions at the top of that file.
 
-Projections are stored per gameweek, so the sidebar horizon re-sums them without re-importing.
+Projections are stored per gameweek, so changing the window re-sums them without re-importing.
 With no projections loaded the columns are absent entirely rather than showing empty cells.
+
+A **Projections** panel below the player board totals each player's projections over a
+gameweek window - **xP**, **xG** and **xA** summed, **xMins** averaged, and **xCS** / **xDC**
+(per-match clean-sheet and defensive-contribution probabilities) summed so they read as expected
+counts over the window - sortable and filterable like the main tables. Beside the price sit two
+rates for comparing players across window lengths: **xP/GW** (xP over the gameweeks the source
+projected inside the window) and **xP/£/GW** (that rate per £m of current price). Which of these a source
+fills depends on the file: FPL Review's export carries all of them, a points-only file just xP.
+Its controls sit in a bar above it: the **Source** to show, the **Weeks** window (which also
+drives the board's xP column, so the two never disagree) and a **Position** filter independent
+of the board's own. The window defaults to
+the next six unplayed gameweeks; when the imported file doesn't cover all of them the panel says so
+and totals only the gameweeks it has.
 
 ## Run
 
@@ -106,4 +119,41 @@ separately:
 
 # Frontend (from frontend/)
 npm run dev
+```
+
+## Or start nothing, and just open the bookmark
+
+`systemd/` holds a socket unit and a service, the same shape as the fantasy-football draft
+dashboard. systemd owns `:8767` and starts the backend on the first connection, so the page works
+from cold with nothing running. The backend serves the built frontend same-origin, so that one
+port is the whole app:
+
+```bash
+(cd frontend && npm run build)
+ln -s "$PWD"/systemd/fpl-dashboard.{socket,service} ~/.config/systemd/user/
+systemctl --user daemon-reload
+systemctl --user enable --now fpl-dashboard.socket
+```
+
+Then, from any device on the tailnet:
+
+- <http://fantasy-laptop:8767/> (MagicDNS), or
+- <http://100.72.210.79:8767/>
+
+(Not from this laptop itself: its tailscaled runs in userspace-networking mode, so it cannot dial
+its own Tailscale address or resolve MagicDNS names. Use <http://localhost:8767/> here.)
+
+It stops itself after `FPL_IDLE_TIMEOUT` seconds (900 in the unit) with no HTTP request and
+respawns on the next visit. Nothing is lost: all state is in `data/fpl.db`.
+
+`:8767` for the bookmark, `:8000`/`:5173` for `./run.sh`, deliberately separate, so a running
+dev session and the always-on instance never fight over a port. `./run.sh` is unchanged: Vite
+proxies `/api` to `:8000` (see `frontend/vite.config.ts`), which is why the API client uses
+relative URLs.
+
+**After changing the frontend**, rebuild so the systemd instance picks it up (the backend picks up
+its own changes on the next idle respawn, or `systemctl --user restart fpl-dashboard.service`):
+
+```bash
+(cd frontend && npm run build)
 ```

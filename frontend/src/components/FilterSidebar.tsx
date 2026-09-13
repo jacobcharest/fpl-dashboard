@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { ProjectionSource, ProjectionSpec, TeamFilterState } from "../types";
+import type { TeamFilterState } from "../types";
 import "./FilterSidebar.css";
 
 interface Props {
@@ -11,11 +11,10 @@ interface Props {
   onPer90Change: (v: boolean) => void;
   startsOnly: boolean;
   onStartsOnlyChange: (v: boolean) => void;
-  projSources: ProjectionSource[];
-  projection: ProjectionSpec;
-  onProjectionChange: (p: ProjectionSpec) => void;
 }
 
+/** The stats filters. Laid out as a bar above the table (not a side column) so the table
+ *  gets the full width; the team list wraps into as many columns as fit. */
 export function FilterSidebar({
   teams,
   onChange,
@@ -25,12 +24,10 @@ export function FilterSidebar({
   onPer90Change,
   startsOnly,
   onStartsOnlyChange,
-  projSources,
-  projection,
-  onProjectionChange,
 }: Props) {
   const [globalStart, setGlobalStart] = useState(1);
   const [globalEnd, setGlobalEnd] = useState(maxGw);
+  const [teamsOpen, setTeamsOpen] = useState(false); // hidden by default: it's tall and rarely changed
 
   const updateTeam = (team_code: number, patch: Partial<TeamFilterState>) => {
     onChange(teams.map((t) => (t.team_code === team_code ? { ...t, ...patch } : t)));
@@ -44,139 +41,101 @@ export function FilterSidebar({
     onChange(teams.map((t) => ({ ...t, start_gw: globalStart, end_gw: globalEnd })));
   };
 
+  const excluded = teams.filter((t) => !t.included).length;
+
   return (
-    <aside className="filter-sidebar">
-      {showPlayerToggles && (
-        <div className="sidebar-section">
-          <div className="section-title">Display</div>
-          <label className="toggle-row">
-            <input type="checkbox" checked={per90} onChange={(e) => onPer90Change(e.target.checked)} />
-            Per 90
-          </label>
-          <label className="toggle-row">
-            <input type="checkbox" checked={startsOnly} onChange={(e) => onStartsOnlyChange(e.target.checked)} />
-            Starts only
-          </label>
-        </div>
-      )}
-
-      {showPlayerToggles && projSources.length > 0 && (
-        <div className="sidebar-section">
-          <div className="section-title">Projections</div>
-          <select
-            className="proj-source"
-            value={projection.source ?? ""}
-            onChange={(e) => {
-              const src = projSources.find((s) => s.source === e.target.value);
-              onProjectionChange(
-                src
-                  ? { source: src.source, start_gw: src.first_gw, end_gw: src.last_gw }
-                  : { ...projection, source: null }
-              );
-            }}
-          >
-            <option value="">Off</option>
-            {projSources.map((s) => (
-              <option key={s.source} value={s.source}>
-                {s.source} ({s.players} players, GW{s.first_gw}-{s.last_gw})
-              </option>
-            ))}
-          </select>
-          {projection.source && (
-            <div className="global-range">
-              <span>Horizon</span>
-              <input
-                type="number"
-                min={1}
-                max={maxGw}
-                value={projection.start_gw}
-                onChange={(e) => onProjectionChange({ ...projection, start_gw: Number(e.target.value) })}
-              />
-              <span>to</span>
-              <input
-                type="number"
-                min={1}
-                max={maxGw}
-                value={projection.end_gw}
-                onChange={(e) => onProjectionChange({ ...projection, end_gw: Number(e.target.value) })}
-              />
-            </div>
-          )}
-        </div>
-      )}
-
-      <div className="sidebar-section">
-        <div className="section-title">Teams</div>
-        <div className="bulk-buttons">
-          <button onClick={() => setAllIncluded(true)}>Include All</button>
-          <button onClick={() => setAllIncluded(false)}>Exclude All</button>
-        </div>
-        <div className="global-range">
-          <span>Gameweeks</span>
-          <input
-            type="number"
-            min={1}
-            max={maxGw}
-            value={globalStart}
-            onChange={(e) => setGlobalStart(Number(e.target.value))}
-          />
-          <span>to</span>
-          <input
-            type="number"
-            min={1}
-            max={maxGw}
-            value={globalEnd}
-            onChange={(e) => setGlobalEnd(Number(e.target.value))}
-          />
-          <button onClick={applyGlobalRange}>Apply to All</button>
-        </div>
-      </div>
-
-      <div className="sidebar-section team-list">
-        <div className="team-row team-row-header">
-          <span>Incl.</span>
-          <span>Team</span>
-          <span>GW</span>
-          <span></span>
-          <span>Opp.</span>
-        </div>
-        {teams.map((t) => (
-          <div className="team-row" key={t.team_code}>
-            <input
-              type="checkbox"
-              checked={t.included}
-              onChange={(e) => updateTeam(t.team_code, { included: e.target.checked })}
-            />
-            <span className="team-name" title={t.name}>
-              {t.name}
-            </span>
-            <input
-              type="number"
-              className="gw-input"
-              min={1}
-              max={maxGw}
-              value={t.start_gw}
-              disabled={!t.included}
-              onChange={(e) => updateTeam(t.team_code, { start_gw: Number(e.target.value) })}
-            />
-            <input
-              type="number"
-              className="gw-input"
-              min={1}
-              max={maxGw}
-              value={t.end_gw}
-              disabled={!t.included}
-              onChange={(e) => updateTeam(t.team_code, { end_gw: Number(e.target.value) })}
-            />
-            <input
-              type="checkbox"
-              title="Include as opponent"
-              checked={t.opponentIncluded}
-              onChange={(e) => updateTeam(t.team_code, { opponentIncluded: e.target.checked })}
-            />
+    <div className="filter-bar">
+      <div className="filter-bar-row">
+        {showPlayerToggles && (
+          <div className="sidebar-section filter-inline">
+            <div className="section-title">Display</div>
+            <label className="toggle-row">
+              <input type="checkbox" checked={per90} onChange={(e) => onPer90Change(e.target.checked)} />
+              Per 90
+            </label>
+            <label className="toggle-row">
+              <input type="checkbox" checked={startsOnly} onChange={(e) => onStartsOnlyChange(e.target.checked)} />
+              Starts only
+            </label>
           </div>
-        ))}
+        )}
+
+        <div className="sidebar-section filter-inline">
+          <div className="section-title">Teams</div>
+          <div className="bulk-buttons">
+            <button onClick={() => setAllIncluded(true)}>Include All</button>
+            <button onClick={() => setAllIncluded(false)}>Exclude All</button>
+          </div>
+          <div className="global-range">
+            <span>Gameweeks</span>
+            <input
+              type="number"
+              min={1}
+              max={maxGw}
+              value={globalStart}
+              onChange={(e) => setGlobalStart(Number(e.target.value))}
+            />
+            <span>to</span>
+            <input
+              type="number"
+              min={1}
+              max={maxGw}
+              value={globalEnd}
+              onChange={(e) => setGlobalEnd(Number(e.target.value))}
+            />
+            <button onClick={applyGlobalRange}>Apply to All</button>
+          </div>
+          <button className="teams-toggle" onClick={() => setTeamsOpen((o) => !o)}>
+            {teamsOpen ? "Hide teams" : "Show teams"}
+            {excluded > 0 && <span className="teams-excluded">{excluded} excluded</span>}
+          </button>
+        </div>
       </div>
-    </aside>
+
+      {teamsOpen && (
+        <div className="sidebar-section team-list">
+          <div className="team-legend">Include · team · gameweek range · include as opponent</div>
+          <div className="team-grid">
+            {teams.map((t) => (
+              <div className="team-row" key={t.team_code}>
+                <input
+                  type="checkbox"
+                  title="Include team"
+                  checked={t.included}
+                  onChange={(e) => updateTeam(t.team_code, { included: e.target.checked })}
+                />
+                <span className="team-name" title={t.name}>
+                  {t.name}
+                </span>
+                <input
+                  type="number"
+                  className="gw-input"
+                  min={1}
+                  max={maxGw}
+                  value={t.start_gw}
+                  disabled={!t.included}
+                  onChange={(e) => updateTeam(t.team_code, { start_gw: Number(e.target.value) })}
+                />
+                <input
+                  type="number"
+                  className="gw-input"
+                  min={1}
+                  max={maxGw}
+                  value={t.end_gw}
+                  disabled={!t.included}
+                  onChange={(e) => updateTeam(t.team_code, { end_gw: Number(e.target.value) })}
+                />
+                <input
+                  type="checkbox"
+                  title="Include as opponent"
+                  checked={t.opponentIncluded}
+                  onChange={(e) => updateTeam(t.team_code, { opponentIncluded: e.target.checked })}
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

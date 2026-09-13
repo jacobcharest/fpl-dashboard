@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS player_season (
     team_code         INTEGER NOT NULL,
     position          TEXT NOT NULL,     -- GK / DEF / MID / FWD
     start_cost        INTEGER,           -- price * 10 at season start
+    selected_by_percent REAL,            -- ownership %: current for the live season, season-end snapshot for archive seasons
     PRIMARY KEY (season_id, player_code)
 );
 CREATE INDEX IF NOT EXISTS idx_player_season_element ON player_season(season_id, season_element_id);
@@ -119,6 +120,10 @@ CREATE TABLE IF NOT EXISTS player_projections (
     source      TEXT NOT NULL,      -- e.g. 'fplreview'
     xp          REAL,               -- projected FPL points
     xmins       REAL,               -- projected minutes; the availability signal, often the point
+    xg          REAL,               -- projected expected goals for the gameweek
+    xa          REAL,               -- projected expected assists
+    xcs         REAL,               -- clean sheet probability
+    xdc         REAL,               -- probability of hitting the defensive-contribution threshold
     imported_at TEXT,
     PRIMARY KEY (season_id, player_code, round, source)
 );

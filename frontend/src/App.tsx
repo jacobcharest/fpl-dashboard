@@ -3,11 +3,14 @@ import { getMyTeam, getPlayerTable, getProjectionSources, getSeasonTeams, getSea
 import { ChartsPanel } from "./components/ChartsPanel";
 import { FilterSidebar } from "./components/FilterSidebar";
 import { PlayerTable } from "./components/PlayerTable";
+import { ProjectionsPanel } from "./components/ProjectionsPanel";
 import { TeamTable } from "./components/TeamTable";
 import type { MyTeam, NumericFilter, PlayerRow, ProjectionSource, ProjectionSpec, Season, SortSpec, SquadPick, TeamFilterState, TeamRow } from "./types";
 import "./App.css";
 
 const MAX_GW = 38;
+// How many gameweeks ahead the projections window defaults to.
+const PROJECTION_WEEKS = 6;
 
 function errorMessage(err: any): string {
   return err?.response?.data?.detail ?? err?.message ?? "Unknown error";
@@ -38,6 +41,7 @@ function App() {
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
   const [projSources, setProjSources] = useState<ProjectionSource[]>([]);
   const [projection, setProjection] = useState<ProjectionSpec>({ source: null, start_gw: 1, end_gw: 4 });
+  const [projPositions, setProjPositions] = useState<string[] | null>(null);
 
   useEffect(() => {
     getSeasons().then((data) => {
@@ -74,20 +78,24 @@ function App() {
       .catch(() => setMyTeam(null));
   }, [seasonId]);
 
+  // Default the projection window to the next six unplayed gameweeks - what you'd actually plan
+  // transfers around - rather than whatever span the imported file happens to cover.
+  const nextGw = useMemo(() => {
+    const played = seasons.find((s) => s.id === seasonId)?.played_through ?? 0;
+    return Math.min(played + 1, MAX_GW);
+  }, [seasons, seasonId]);
+
   useEffect(() => {
     if (!seasonId) return;
     getProjectionSources(seasonId)
       .then((sources) => {
         setProjSources(sources);
         const first = sources[0];
-        setProjection(
-          first
-            ? { source: first.source, start_gw: first.first_gw, end_gw: first.last_gw }
-            : { source: null, start_gw: 1, end_gw: 4 }
-        );
+        const end = Math.min(nextGw + PROJECTION_WEEKS - 1, MAX_GW);
+        setProjection({ source: first?.source ?? null, start_gw: nextGw, end_gw: end });
       })
       .catch(() => setProjSources([]));
-  }, [seasonId]);
+  }, [seasonId, nextGw]);
 
   // Keyed by player_code so the table can look a row up in O(1); memoized so PlayerTable's
   // column defs aren't rebuilt on every render.
@@ -257,9 +265,6 @@ function App() {
           onPer90Change={setPer90}
           startsOnly={startsOnly}
           onStartsOnlyChange={setStartsOnly}
-          projSources={projSources}
-          projection={projection}
-          onProjectionChange={setProjection}
         />
 
         {viewMode === "players" ? (
@@ -285,6 +290,21 @@ function App() {
           />
         )}
       </div>
+
+      {viewMode === "players" && (
+        <ProjectionsPanel
+          seasonId={seasonId}
+          teamRanges={teamRanges}
+          maxGw={MAX_GW}
+          projSources={projSources}
+          projection={projection}
+          onProjectionChange={setProjection}
+          positions={projPositions}
+          onPositionsChange={setProjPositions}
+          squad={squad}
+          refreshNonce={refreshNonce}
+        />
+      )}
 
       <ChartsPanel
         entityType={viewMode === "players" ? "player" : "team"}

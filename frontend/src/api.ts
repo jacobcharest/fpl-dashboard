@@ -5,6 +5,7 @@ import type {
   PlayerTableRequest,
   MyTeam,
   ProjectionSource,
+  ProjectionTable,
   MyTeamSyncResult,
   Season,
   SeriesPoint,
@@ -13,7 +14,9 @@ import type {
   TeamRow,
 } from "./types";
 
-const client = axios.create({ baseURL: "http://localhost:8000" });
+// Relative URLs: in dev the Vite proxy forwards /api -> :8000 (vite.config.ts); in the
+// systemd instance the backend serves the built app itself, so /api is same-origin.
+const client = axios.create({ baseURL: "" });
 
 export async function getSeasons(): Promise<Season[]> {
   return (await client.get("/api/seasons")).data;
@@ -59,4 +62,8 @@ export async function syncMyTeam(seasonId: string, entryId: number): Promise<MyT
 
 export async function getProjectionSources(seasonId: string): Promise<ProjectionSource[]> {
   return (await client.get(`/api/projections/${seasonId}`)).data;
+}
+
+export async function getProjectionTable(req: PlayerTableRequest): Promise<ProjectionTable> {
+  return (await client.post("/api/projections/table", req)).data;
 }
