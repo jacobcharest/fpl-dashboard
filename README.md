@@ -107,3 +107,40 @@ separately:
 # Frontend (from frontend/)
 npm run dev
 ```
+
+## Or start nothing, and just open the bookmark
+
+`systemd/` holds a socket unit and a service, the same shape as the fantasy-football draft
+dashboard. systemd owns `:8767` and starts the backend on the first connection, so the page works
+from cold with nothing running. The backend serves the built frontend same-origin, so that one
+port is the whole app:
+
+```bash
+(cd frontend && npm run build)
+ln -s "$PWD"/systemd/fpl-dashboard.{socket,service} ~/.config/systemd/user/
+systemctl --user daemon-reload
+systemctl --user enable --now fpl-dashboard.socket
+```
+
+Then, from any device on the tailnet:
+
+- <http://fantasy-laptop:8767/> (MagicDNS), or
+- <http://100.72.210.79:8767/>
+
+(Not from this laptop itself: its tailscaled runs in userspace-networking mode, so it cannot dial
+its own Tailscale address or resolve MagicDNS names. Use <http://localhost:8767/> here.)
+
+It stops itself after `FPL_IDLE_TIMEOUT` seconds (900 in the unit) with no HTTP request and
+respawns on the next visit. Nothing is lost: all state is in `data/fpl.db`.
+
+`:8767` for the bookmark, `:8000`/`:5173` for `./run.sh`, deliberately separate, so a running
+dev session and the always-on instance never fight over a port. `./run.sh` is unchanged: Vite
+proxies `/api` to `:8000` (see `frontend/vite.config.ts`), which is why the API client uses
+relative URLs.
+
+**After changing the frontend**, rebuild so the systemd instance picks it up (the backend picks up
+its own changes on the next idle respawn, or `systemctl --user restart fpl-dashboard.service`):
+
+```bash
+(cd frontend && npm run build)
+```

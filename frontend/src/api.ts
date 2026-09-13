@@ -13,7 +13,9 @@ import type {
   TeamRow,
 } from "./types";
 
-const client = axios.create({ baseURL: "http://localhost:8000" });
+// Relative URLs: in dev the Vite proxy forwards /api -> :8000 (vite.config.ts); in the
+// systemd instance the backend serves the built app itself, so /api is same-origin.
+const client = axios.create({ baseURL: "" });
 
 export async function getSeasons(): Promise<Season[]> {
   return (await client.get("/api/seasons")).data;
