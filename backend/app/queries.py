@@ -93,7 +93,7 @@ def load_season_frames(conn, season_id: str):
     )
     teams = pd.read_sql("SELECT * FROM teams WHERE season_id = ?", conn, params=(season_id,))
     players = pd.read_sql(
-        """SELECT p.player_code, p.web_name, ps.position
+        """SELECT p.player_code, p.web_name, ps.position, ps.selected_by_percent
            FROM player_season ps JOIN players p ON p.player_code = ps.player_code
            WHERE ps.season_id = ?""",
         conn,
@@ -216,7 +216,7 @@ def query_players(conn, filters: TableFilters, per90: bool, starts_only: bool) -
     agg = _apply_sort(agg, filters.sort, default_column="total_points")
 
     columns = (
-        ["player_code", "web_name", "team_name", "position", "price", "minutes"]
+        ["player_code", "web_name", "team_name", "position", "price", "selected_by_percent", "minutes"]
         + PLAYER_STAT_COLUMNS
         + ["defensive_contribution_hit_rate"]
     )

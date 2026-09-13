@@ -63,6 +63,7 @@ export interface PlayerRow {
   team_name: string;
   position: string;
   price: number;
+  selected_by_percent: number | null; // ownership %; null until the season is (re)fetched
   minutes: number;
   total_points: number;
   goals_scored: number;

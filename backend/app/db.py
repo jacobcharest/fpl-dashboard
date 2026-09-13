@@ -17,6 +17,7 @@ def get_connection() -> sqlite3.Connection:
 # table, so these are applied with ALTER TABLE when missing - the one migration mechanism here.
 ADDED_COLUMNS = {
     "player_projections": {"xg": "REAL", "xa": "REAL", "xcs": "REAL", "xdc": "REAL"},
+    "player_season": {"selected_by_percent": "REAL"},
 }
 
 

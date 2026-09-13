@@ -259,6 +259,7 @@ def backfill_live_season(conn, season_id: str, bootstrap: dict | None = None) ->
             "element_type": int(e["element_type"]),
             "now_cost": int(e["now_cost"]),
             "start_cost": int(e["now_cost"]) - int(e.get("cost_change_start") or 0),
+            "selected_by_percent": _num(e.get("selected_by_percent"), float),
         }
         for e in elements
     ]
@@ -389,6 +390,8 @@ def backfill_archive_season(conn, season_id: str) -> dict:
                 "element_type": int(row["element_type"]),
                 "now_cost": now_cost,
                 "start_cost": now_cost - int(row["cost_change_start"]) if has_cost_change else now_cost,
+                # The archive's players_raw.csv is a season-end snapshot, so this is final ownership.
+                "selected_by_percent": _num(row.get("selected_by_percent"), float),
             }
         )
 
@@ -483,13 +486,15 @@ def _write_season(conn, season_id, team_rows, player_rows, fixture_rows, gw_rows
         )
         cur.execute(
             """INSERT INTO player_season
-                 (season_id, player_code, season_element_id, team_code, position, start_cost)
-               VALUES (?, ?, ?, ?, ?, ?)
+                 (season_id, player_code, season_element_id, team_code, position, start_cost,
+                  selected_by_percent)
+               VALUES (?, ?, ?, ?, ?, ?, ?)
                ON CONFLICT(season_id, player_code) DO UPDATE SET
                  season_element_id=excluded.season_element_id,
                  team_code=excluded.team_code,
                  position=excluded.position,
-                 start_cost=excluded.start_cost""",
+                 start_cost=excluded.start_cost,
+                 selected_by_percent=excluded.selected_by_percent""",
             (
                 season_id,
                 p["code"],
@@ -497,6 +502,7 @@ def _write_season(conn, season_id, team_rows, player_rows, fixture_rows, gw_rows
                 p["team_code"],
                 POSITION_BY_ELEMENT_TYPE.get(p["element_type"], "UNK"),
                 p["start_cost"],
+                p.get("selected_by_percent"),
             ),
         )
 

@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS player_season (
     team_code         INTEGER NOT NULL,
     position          TEXT NOT NULL,     -- GK / DEF / MID / FWD
     start_cost        INTEGER,           -- price * 10 at season start
+    selected_by_percent REAL,            -- ownership %: current for the live season, season-end snapshot for archive seasons
     PRIMARY KEY (season_id, player_code)
 );
 CREATE INDEX IF NOT EXISTS idx_player_season_element ON player_season(season_id, season_element_id);

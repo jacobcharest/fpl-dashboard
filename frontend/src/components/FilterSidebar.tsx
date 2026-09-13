@@ -27,7 +27,7 @@ export function FilterSidebar({
 }: Props) {
   const [globalStart, setGlobalStart] = useState(1);
   const [globalEnd, setGlobalEnd] = useState(maxGw);
-  const [teamsOpen, setTeamsOpen] = useState(true);
+  const [teamsOpen, setTeamsOpen] = useState(false); // hidden by default: it's tall and rarely changed
 
   const updateTeam = (team_code: number, patch: Partial<TeamFilterState>) => {
     onChange(teams.map((t) => (t.team_code === team_code ? { ...t, ...patch } : t)));
