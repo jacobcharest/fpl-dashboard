@@ -38,7 +38,7 @@ function FilterCell({
   };
 
   return (
-    <th className="sticky-filter-row filter-cell">
+    <th className="sticky-filter-row filter-cell" data-col={columnId}>
       <input
         type="number"
         placeholder=">"
@@ -77,6 +77,10 @@ export function DataTable<T>({
     getCoreRowModel: getCoreRowModel(),
     getRowId: (row) => String(getRowId(row)),
   });
+  // The > < filter row is collapsible. Open by default on a desktop, where it costs little;
+  // collapsed on a phone (mobile.css's breakpoint), where it doubles the header's height.
+  const [filtersOpen, setFiltersOpen] = useState(() => !window.matchMedia("(max-width: 720px)").matches);
+  const activeFilters = filters.length;
 
   return (
     <div className="data-table-scroll">
@@ -94,6 +98,7 @@ export function DataTable<T>({
                   <th
                     key={header.id}
                     className={classes}
+                    data-col={columnId}
                     onClick={() =>
                       onSortChange({
                         column: columnId,
@@ -103,38 +108,54 @@ export function DataTable<T>({
                   >
                     {flexRender(header.column.columnDef.header, header.getContext())}
                     {isSorted ? (sort?.direction === "desc" ? " ▼" : " ▲") : ""}
+                    {i === 0 && (
+                      <button
+                        type="button"
+                        className={`filter-toggle${activeFilters > 0 ? " filter-toggle-active" : ""}`}
+                        title={filtersOpen ? "Hide the filter row" : "Show the filter row"}
+                        onClick={(e) => {
+                          e.stopPropagation(); // the header cell itself sorts
+                          setFiltersOpen((o) => !o);
+                        }}
+                      >
+                        {filtersOpen ? "▾" : "▸"} Filters
+                        {activeFilters > 0 && <span className="filter-count">{activeFilters}</span>}
+                      </button>
+                    )}
                   </th>
                 );
               })}
             </tr>
           ))}
+          {filtersOpen && (
           <tr className="filter-row">
             {table.getHeaderGroups()[0].headers.map((header, i) => {
               const columnId = header.column.id;
               if (i === 0) {
-                return <th key={header.id} className="sticky-col sticky-filter-row filter-cell" />;
+                return <th key={header.id} className="sticky-col sticky-filter-row filter-cell" data-col={columnId} />;
               }
               if (customFilterColumns[columnId]) {
                 return (
-                  <th key={header.id} className="sticky-filter-row filter-cell">
+                  <th key={header.id} className="sticky-filter-row filter-cell" data-col={columnId}>
                     {customFilterColumns[columnId]}
                   </th>
                 );
               }
               if (!filterableColumnIds.includes(columnId)) {
-                return <th key={header.id} className="sticky-filter-row filter-cell" />;
+                return <th key={header.id} className="sticky-filter-row filter-cell" data-col={columnId} />;
               }
               return (
                 <FilterCell key={header.id} columnId={columnId} filters={filters} onFiltersChange={onFiltersChange} />
               );
             })}
           </tr>
+          )}
         </thead>
         <tbody>
           {table.getRowModel().rows.map((row) => (
             <tr key={row.id} className={getRowClassName?.(row.original)}>
               {row.getVisibleCells().map((cell, i) => (
-                <td key={cell.id} className={i === 0 ? "sticky-col" : undefined}>
+                <td key={cell.id} className={i === 0 ? "sticky-col" : undefined} data-col={cell.column.id}>
                   {flexRender(cell.column.columnDef.cell, cell.getContext())}
                 </td>
               ))}

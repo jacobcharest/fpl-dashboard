@@ -74,8 +74,8 @@ window you choose in the Projections panel:
 backend/.venv/bin/python backend/scripts/import_projections.py 2026-27 ~/Downloads/fplreview.csv
 ```
 
-Pass `--source <name>` to hold more than one model at once (they appear as separate options in
-the Projections panel's Source dropdown, so you can compare them).
+Pass `--source <name>` to hold more than one model at once. The dashboard shows the first source
+loaded for the season; the others stay in the database for comparison via the API.
 
 The parser sniffs the layout rather than requiring a fixed one - long format (a `gw` column plus
 `xp`) and wide format (`1_Pts`, `2_Pts`, ... or `gw1`, `gw2`, ...) both work, with optional
@@ -98,9 +98,8 @@ counts over the window - sortable and filterable like the main tables. Beside th
 rates for comparing players across window lengths: **xP/GW** (xP over the gameweeks the source
 projected inside the window) and **xP/£/GW** (that rate per £m of current price). Which of these a source
 fills depends on the file: FPL Review's export carries all of them, a points-only file just xP.
-Its controls sit in a bar above it: the **Source** to show, the **Weeks** window (which also
-drives the board's xP column, so the two never disagree) and a **Position** filter independent
-of the board's own. The window defaults to
+Its controls sit in a bar above it: the **Weeks** window (which also drives the board's xP
+column, so the two never disagree) and a **Position** filter independent of the board's own. The window defaults to
 the next six unplayed gameweeks; when the imported file doesn't cover all of them the panel says so
 and totals only the gameweeks it has.
 

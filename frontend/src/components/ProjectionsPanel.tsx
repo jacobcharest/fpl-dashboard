@@ -142,20 +142,6 @@ export function ProjectionsPanel({
       <div className="projections-layout">
         <aside className="projections-filter">
           <div className="sidebar-section">
-            <div className="section-title">Source</div>
-            <select
-              className="proj-source"
-              value={projection.source ?? ""}
-              onChange={(e) => onProjectionChange({ ...projection, source: e.target.value })}
-            >
-              {projSources.map((s) => (
-                <option key={s.source} value={s.source}>
-                  {s.source} (GW{s.first_gw}-{s.last_gw})
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="sidebar-section">
             <div className="section-title">Filters</div>
             <div className="global-range">
               <span>Weeks</span>
