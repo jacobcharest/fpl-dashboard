@@ -5,6 +5,7 @@ import { FilterSidebar } from "./components/FilterSidebar";
 import { PlayerTable } from "./components/PlayerTable";
 import { ProjectionsPanel } from "./components/ProjectionsPanel";
 import { TeamTable } from "./components/TeamTable";
+import { gameweekLabel } from "./types";
 import type { MyTeam, NumericFilter, PlayerRow, ProjectionSource, ProjectionSpec, Season, SortSpec, SquadPick, TeamFilterState, TeamRow } from "./types";
 import "./App.css";
 
@@ -40,7 +41,7 @@ function App() {
   const [syncing, setSyncing] = useState(false);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
   const [projSources, setProjSources] = useState<ProjectionSource[]>([]);
-  const [projection, setProjection] = useState<ProjectionSpec>({ source: null, start_gw: 1, end_gw: 4 });
+  const [projection, setProjection] = useState<ProjectionSpec>({ source: null, gameweeks: [] });
   const [projPositions, setProjPositions] = useState<string[] | null>(null);
 
   useEffect(() => {
@@ -92,7 +93,8 @@ function App() {
         setProjSources(sources);
         const first = sources[0];
         const end = Math.min(nextGw + PROJECTION_WEEKS - 1, MAX_GW);
-        setProjection({ source: first?.source ?? null, start_gw: nextGw, end_gw: end });
+        const gameweeks = Array.from({ length: end - nextGw + 1 }, (_, i) => nextGw + i);
+        setProjection({ source: first?.source ?? null, gameweeks });
       })
       .catch(() => setProjSources([]));
   }, [seasonId, nextGw]);
@@ -130,8 +132,7 @@ function App() {
         starts_only: startsOnly,
         positions,
         projection_source: projection.source,
-        projection_start_gw: projection.start_gw,
-        projection_end_gw: projection.end_gw,
+        projection_gameweeks: projection.gameweeks,
       })
         .then(setPlayerRows)
         .catch((err) => setFetchError(errorMessage(err)))
@@ -278,7 +279,7 @@ function App() {
             onPositionsChange={setPositions}
             per90={per90}
             squad={squad}
-            projLabel={projection.source ? `GW${projection.start_gw}-${projection.end_gw}` : null}
+            projLabel={projection.source ? gameweekLabel(projection.gameweeks) : null}
           />
         ) : (
           <TeamTable
@@ -295,7 +296,6 @@ function App() {
         <ProjectionsPanel
           seasonId={seasonId}
           teamRanges={teamRanges}
-          maxGw={MAX_GW}
           projSources={projSources}
           projection={projection}
           onProjectionChange={setProjection}

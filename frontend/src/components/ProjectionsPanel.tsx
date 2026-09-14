@@ -1,6 +1,7 @@
 import { createColumnHelper, type ColumnDef } from "@tanstack/react-table";
 import { useEffect, useMemo, useState } from "react";
 import { getProjectionTable } from "../api";
+import { gameweekLabel } from "../types";
 import type {
   NumericFilter,
   ProjectionRow,
@@ -25,9 +26,8 @@ const FILTERABLE_COLUMNS = ["price", "xp_per_gw", "xp_per_gw_per_m", "xp_total",
 interface Props {
   seasonId: string;
   teamRanges: TeamRange[];
-  maxGw: number;
   projSources: ProjectionSource[];
-  /** Source + Weeks range. Shared with the board, whose xP column sums the same range. */
+  /** Source + ticked gameweeks. Shared with the board, whose xP column sums the same set. */
   projection: ProjectionSpec;
   onProjectionChange: (p: ProjectionSpec) => void;
   /** The panel's own position filter - separate from the board's. */
@@ -58,8 +58,8 @@ function buildColumns(range: string, squad: Map<number, SquadPick>): ColumnDef<P
     // Rates rather than totals, so players are comparable whatever the Weeks range is.
     helper.accessor("xp_per_gw", { header: "xP/GW", cell: (i) => fmt(2)(i.getValue()) }),
     helper.accessor("xp_per_gw_per_m", { header: "xP/£/GW", cell: (i) => fmt(2)(i.getValue()) }),
-    helper.accessor("xp_total", { header: `xP ${range}`, cell: (i) => fmt(1)(i.getValue()) }),
-    helper.accessor("xmins_avg", { header: `xMins ${range}`, cell: (i) => fmt(0)(i.getValue()) }),
+    helper.accessor("xp_total", { header: range ? `xP ${range}` : "xP", cell: (i) => fmt(1)(i.getValue()) }),
+    helper.accessor("xmins_avg", { header: range ? `xMins ${range}` : "xMins", cell: (i) => fmt(0)(i.getValue()) }),
     helper.accessor("xg", { header: "xG", cell: (i) => fmt(2)(i.getValue()) }),
     helper.accessor("xa", { header: "xA", cell: (i) => fmt(2)(i.getValue()) }),
     // Per-match probabilities summed over the window, so they read as an expected count.
@@ -71,7 +71,6 @@ function buildColumns(range: string, squad: Map<number, SquadPick>): ColumnDef<P
 export function ProjectionsPanel({
   seasonId,
   teamRanges,
-  maxGw,
   projSources,
   projection,
   onProjectionChange,
@@ -98,28 +97,40 @@ export function ProjectionsPanel({
       starts_only: false,
       positions,
       projection_source: projection.source,
-      projection_start_gw: projection.start_gw,
-      projection_end_gw: projection.end_gw,
+      projection_gameweeks: projection.gameweeks,
     })
       .then(setTable)
       .catch((err) => setError(err?.response?.data?.detail ?? err?.message ?? "Unknown error"));
   }, [seasonId, teamRanges, positions, projection, filters, sort, refreshNonce]);
 
-  const range = `GW${projection.start_gw}-${projection.end_gw}`;
+  const range = gameweekLabel(projection.gameweeks) ?? "";
   const columns = useMemo(() => buildColumns(range, squad), [range, squad]);
+
+  // One checkbox per gameweek the source covers, plus anything ticked outside that so it can
+  // still be unticked. The source list is known before the first fetch, so the row doesn't pop in.
+  const source = projSources.find((s) => s.source === projection.source);
+  const choices = useMemo(() => {
+    const gws = new Set<number>(projection.gameweeks);
+    if (source) for (let g = source.first_gw; g <= source.last_gw; g++) gws.add(g);
+    return [...gws].sort((a, b) => a - b);
+  }, [source, projection.gameweeks]);
 
   if (projSources.length === 0) return null;
 
   const firstGw = table.gameweeks[0];
   const lastGw = table.gameweeks[table.gameweeks.length - 1];
   const covered = table.gameweeks.length ? `GW${firstGw}-${lastGw}` : null;
-  // The chosen range reaches past what the source has projected - the totals only cover the overlap.
-  const partial = covered !== null && (projection.start_gw < firstGw || projection.end_gw > lastGw);
-  const none = covered !== null && (projection.end_gw < firstGw || projection.start_gw > lastGw);
-  const setWeek = (key: "start_gw" | "end_gw", raw: string) => {
-    const n = Number(raw);
-    if (Number.isInteger(n)) onProjectionChange({ ...projection, [key]: n });
-  };
+  const selected = new Set(projection.gameweeks);
+  const inside = table.gameweeks.filter((g) => selected.has(g)).length;
+  // Some ticked gameweeks reach past what the source has projected - the totals only cover the overlap.
+  const partial = covered !== null && inside > 0 && inside < selected.size;
+  const none = covered !== null && selected.size > 0 && inside === 0;
+  const setGameweeks = (gameweeks: number[]) =>
+    onProjectionChange({ ...projection, gameweeks: [...gameweeks].sort((a, b) => a - b) });
+  const toggle = (gw: number) =>
+    setGameweeks(selected.has(gw) ? projection.gameweeks.filter((g) => g !== gw) : [...projection.gameweeks, gw]);
+  const isPlayed = (gw: number) => table.played_through != null && gw <= table.played_through;
+  const unplayed = choices.filter((g) => !isPlayed(g));
 
   return (
     <section className="projections-panel">
@@ -143,23 +154,24 @@ export function ProjectionsPanel({
         <aside className="projections-filter">
           <div className="sidebar-section">
             <div className="section-title">Filters</div>
-            <div className="global-range">
+            <div className="global-range gw-picker">
               <span>Weeks</span>
-              <input
-                type="number"
-                min={1}
-                max={maxGw}
-                value={projection.start_gw}
-                onChange={(e) => setWeek("start_gw", e.target.value)}
-              />
-              <span>to</span>
-              <input
-                type="number"
-                min={1}
-                max={maxGw}
-                value={projection.end_gw}
-                onChange={(e) => setWeek("end_gw", e.target.value)}
-              />
+              {choices.map((gw) => (
+                <label
+                  key={gw}
+                  className={`gw-check${selected.has(gw) ? " gw-check-on" : ""}${isPlayed(gw) ? " gw-check-played" : ""}`}
+                  title={isPlayed(gw) ? `GW${gw} has already been played` : `GW${gw}`}
+                >
+                  <input type="checkbox" checked={selected.has(gw)} onChange={() => toggle(gw)} />
+                  {gw}
+                </label>
+              ))}
+              <button type="button" onClick={() => setGameweeks(unplayed)} title="Tick every unplayed gameweek the source covers">
+                All
+              </button>
+              <button type="button" onClick={() => setGameweeks([])}>
+                None
+              </button>
             </div>
             <div className="global-range">
               <span>Position</span>
@@ -170,10 +182,13 @@ export function ProjectionsPanel({
 
         <div className="projections-table">
           {error && <div className="fetch-error">Couldn't load projections: {error}</div>}
+          {selected.size === 0 && (
+            <div className="projections-note">Tick at least one gameweek to total projections over.</div>
+          )}
           {none && (
             <div className="projections-note">
               {projection.source} has no projections for {range}; it covers {covered}. Import a newer file
-              or move the Weeks range.
+              or tick different weeks.
             </div>
           )}
           {partial && !none && (

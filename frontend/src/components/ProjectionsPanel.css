@@ -70,3 +70,47 @@
 .projections-panel .data-table-scroll {
   max-height: 520px;
 }
+
+/* Gameweek tick boxes: one small chip per week the source covers. */
+.gw-picker {
+  gap: 4px;
+}
+
+.gw-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 7px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text-dim);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  user-select: none;
+  accent-color: var(--accent);
+}
+
+.gw-check:hover {
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+.gw-check-on {
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+
+/* Already-played weeks are history, not a plan; keep them tickable but visibly secondary. */
+.gw-check-played {
+  opacity: 0.55;
+}
+
+.gw-check input {
+  margin: 0;
+}
+
+.gw-picker button {
+  margin-left: 4px;
+}

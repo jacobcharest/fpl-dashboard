@@ -128,8 +128,8 @@ class PlayerTableRequest(TableRequest):
     starts_only: bool = False
     positions: list[str] | None = None
     projection_source: str | None = None
-    projection_start_gw: int | None = None
-    projection_end_gw: int | None = None
+    # Explicit gameweeks to total projections over - any set, not necessarily contiguous.
+    projection_gameweeks: list[int] | None = None
 
 
 class ChartSeriesRequest(TableRequest):
@@ -149,8 +149,7 @@ def _to_table_filters(req: TableRequest) -> TableFilters:
         sort=SortSpec(req.sort.column, req.sort.direction) if req.sort else None,
         positions=getattr(req, "positions", None),
         projection_source=getattr(req, "projection_source", None),
-        projection_start_gw=getattr(req, "projection_start_gw", None),
-        projection_end_gw=getattr(req, "projection_end_gw", None),
+        projection_gameweeks=getattr(req, "projection_gameweeks", None),
     )
 
 

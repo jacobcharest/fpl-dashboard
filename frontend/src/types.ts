@@ -51,8 +51,7 @@ export interface PlayerTableRequest extends TableRequest {
   starts_only: boolean;
   positions: string[] | null;
   projection_source?: string | null;
-  projection_start_gw?: number | null;
-  projection_end_gw?: number | null;
+  projection_gameweeks?: number[] | null;
 }
 
 export const POSITIONS = ["GK", "DEF", "MID", "FWD"] as const;
@@ -157,11 +156,22 @@ export interface ProjectionTable {
   rows: ProjectionRow[];
 }
 
-/** Horizon the player table sums projections over. null source = projections off. */
+/** Horizon the player table sums projections over. null source = projections off. The
+ * gameweeks are an explicit set (ticked in the Projections panel), not necessarily contiguous. */
 export interface ProjectionSpec {
   source: string | null;
-  start_gw: number;
-  end_gw: number;
+  gameweeks: number[];
+}
+
+/** "GW5-10" for a contiguous set, "GW5, 7, 8" otherwise; null when nothing is selected. */
+export function gameweekLabel(gameweeks: number[]): string | null {
+  if (gameweeks.length === 0) return null;
+  const sorted = [...gameweeks].sort((a, b) => a - b);
+  const first = sorted[0];
+  const last = sorted[sorted.length - 1];
+  const contiguous = last - first + 1 === sorted.length;
+  if (sorted.length === 1) return `GW${first}`;
+  return contiguous ? `GW${first}-${last}` : `GW${sorted.join(", ")}`;
 }
 
 export interface SquadPick {

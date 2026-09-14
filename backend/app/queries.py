@@ -78,8 +78,7 @@ class TableFilters:
     positions: list[str] | None = None  # players only; None = no filter (all positions)
     # Forward-looking projections (players only). None = don't join any; see app/projections.py.
     projection_source: str | None = None
-    projection_start_gw: int | None = None
-    projection_end_gw: int | None = None
+    projection_gameweeks: list[int] | None = None  # any set of rounds; None/empty = no horizon
 
 
 def load_season_frames(conn, season_id: str):
@@ -159,21 +158,30 @@ def _projection_totals(conn, filters: TableFilters) -> pd.DataFrame | None:
 
     Returns None when no horizon is requested, so the projection columns stay absent rather
     than appearing as a column of dashes."""
-    if not (filters.projection_source and filters.projection_start_gw and filters.projection_end_gw):
+    if not (filters.projection_source and filters.projection_gameweeks):
         return None
+    gws = _gameweek_list(filters.projection_gameweeks)
     rows = pd.read_sql_query(
         # xP sums (total points expected over the window) but xMins averages: expected minutes
         # is a per-match availability signal, and a summed 524 reads as nonsense next to the
         # 0-90 scale everyone knows it by.
-        """SELECT player_code, SUM(xp) AS xp, AVG(xmins) AS xmins
+        f"""SELECT player_code, SUM(xp) AS xp, AVG(xmins) AS xmins
            FROM player_projections
-           WHERE season_id = ? AND source = ? AND round BETWEEN ? AND ?
+           WHERE season_id = ? AND source = ? AND round IN ({_placeholders(gws)})
            GROUP BY player_code""",
         conn,
-        params=(filters.season_id, filters.projection_source,
-                filters.projection_start_gw, filters.projection_end_gw),
+        params=(filters.season_id, filters.projection_source, *gws),
     )
     return rows if not rows.empty else None
+
+
+def _gameweek_list(gameweeks: list[int]) -> list[int]:
+    """De-duplicated, sorted ints so the SQL placeholders line up with the params."""
+    return sorted({int(g) for g in gameweeks})
+
+
+def _placeholders(values: list) -> str:
+    return ", ".join("?" for _ in values)
 
 
 def query_players(conn, filters: TableFilters, per90: bool, starts_only: bool) -> list[dict]:
@@ -236,8 +244,9 @@ def query_projections(conn, filters: TableFilters) -> dict:
     Rows follow the sidebar's team include/exclude and the panel's position filter, but not the
     per-team gameweek windows: those slice history, and projections are the other direction."""
     empty = {"gameweeks": [], "played_through": None, "rows": []}
-    if not (filters.projection_source and filters.projection_start_gw and filters.projection_end_gw):
+    if not filters.projection_source:
         return empty
+    selected = _gameweek_list(filters.projection_gameweeks or [])
 
     gameweeks = [int(r[0]) for r in conn.execute(
         "SELECT DISTINCT round FROM player_projections WHERE season_id = ? AND source = ? ORDER BY round",
@@ -251,17 +260,17 @@ def query_projections(conn, filters: TableFilters) -> dict:
     played_through = int(player_gw["round"].max()) if not player_gw.empty else None
 
     totals = pd.read_sql_query(
-        """SELECT player_code, SUM(xp) AS xp_total, AVG(xmins) AS xmins_avg, COUNT(*) AS gw_count,
+        f"""SELECT player_code, SUM(xp) AS xp_total, AVG(xmins) AS xmins_avg, COUNT(*) AS gw_count,
                   SUM(xg) AS xg, SUM(xa) AS xa, SUM(xcs) AS xcs, SUM(xdc) AS xdc
            FROM player_projections
-           WHERE season_id = ? AND source = ? AND round BETWEEN ? AND ?
+           WHERE season_id = ? AND source = ? AND round IN ({_placeholders(selected)})
            GROUP BY player_code""",
         conn,
-        params=(filters.season_id, filters.projection_source,
-                filters.projection_start_gw, filters.projection_end_gw),
-    )
+        params=(filters.season_id, filters.projection_source, *selected),
+    ) if selected else pd.DataFrame()
     if totals.empty:
-        # The window misses the source entirely; still list its players so the panel isn't blank.
+        # Nothing selected, or the selection misses the source entirely; still list its players
+        # so the panel isn't blank.
         totals = pd.read_sql_query(
             "SELECT DISTINCT player_code FROM player_projections WHERE season_id = ? AND source = ?",
             conn, params=(filters.season_id, filters.projection_source),
