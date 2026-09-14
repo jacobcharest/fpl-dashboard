@@ -67,8 +67,8 @@ same button again after kickoff to pull the squad. Re-sync whenever you make tra
 ## Projections
 
 The dashboard can show forward-looking expected points beside the historical stats. Import a
-projections CSV and the player table gains **xP** and **xMins** columns, summed over a gameweek
-window you choose in the Projections panel:
+projections CSV and the player table gains **xP** and **xMins** columns, summed over the
+gameweeks you tick in the Projections panel:
 
 ```bash
 backend/.venv/bin/python backend/scripts/import_projections.py 2026-27 ~/Downloads/fplreview.csv
@@ -98,10 +98,12 @@ counts over the window - sortable and filterable like the main tables. Beside th
 rates for comparing players across window lengths: **xP/GW** (xP over the gameweeks the source
 projected inside the window) and **xP/£/GW** (that rate per £m of current price). Which of these a source
 fills depends on the file: FPL Review's export carries all of them, a points-only file just xP.
-Its controls sit in a bar above it: the **Weeks** window (which also drives the board's xP
-column, so the two never disagree) and a **Position** filter independent of the board's own. The window defaults to
-the next six unplayed gameweeks; when the imported file doesn't cover all of them the panel says so
-and totals only the gameweeks it has.
+Its controls sit in a bar above it: a **Weeks** row with one tick box per gameweek the source
+covers (which also drives the board's xP column, so the two never disagree; any set works, so you
+can skip a blank or a bad fixture) and a **Position** filter independent of the board's own. The
+next six unplayed gameweeks start ticked and **All** / **None** reset the row; already-played
+weeks are dimmed. When the imported file doesn't cover every ticked week the panel says so and
+totals only the gameweeks it has.
 
 ## Run
 
