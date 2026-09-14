@@ -52,6 +52,14 @@ function App() {
     });
   }, []);
 
+  // The last gameweek the season actually has stats for. Finished seasons run to 38; the live
+  // one stops at the latest played round, so the filters describe the data the table holds
+  // rather than a nominal 1-38.
+  const lastPlayedGw = useMemo(() => {
+    const played = seasons.find((s) => s.id === seasonId)?.played_through;
+    return played ? Math.min(played, MAX_GW) : MAX_GW;
+  }, [seasons, seasonId]);
+
   useEffect(() => {
     if (!seasonId) return;
     getSeasonTeams(seasonId).then((teams) => {
@@ -62,11 +70,11 @@ function App() {
           included: true,
           opponentIncluded: true,
           start_gw: 1,
-          end_gw: MAX_GW,
+          end_gw: lastPlayedGw,
         }))
       );
     });
-  }, [seasonId]);
+  }, [seasonId, lastPlayedGw]);
 
   useEffect(() => {
     if (!seasonId) return;
@@ -174,6 +182,8 @@ function App() {
       .then((summary) => {
         setRefreshMessage(`Updated: ${summary.gw_rows_inserted} gameweek rows, ${summary.players} players.`);
         setRefreshNonce((n) => n + 1);
+        // New results move played_through, which the gameweek filters and projection default follow.
+        return getSeasons().then(setSeasons);
       })
       .catch((err) => setRefreshMessage(`Refresh failed: ${errorMessage(err)}`))
       .finally(() => setRefreshing(false));
@@ -260,7 +270,7 @@ function App() {
         <FilterSidebar
           teams={teamFilters}
           onChange={setTeamFilters}
-          maxGw={MAX_GW}
+          maxGw={lastPlayedGw}
           showPlayerToggles={viewMode === "players"}
           per90={per90}
           onPer90Change={setPer90}
