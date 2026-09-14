@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { TeamFilterState } from "../types";
 import "./FilterSidebar.css";
 
 interface Props {
   teams: TeamFilterState[];
   onChange: (teams: TeamFilterState[]) => void;
+  /** Last gameweek with data for this season - the upper bound of every range input. */
   maxGw: number;
   showPlayerToggles: boolean;
   per90: boolean;
@@ -28,6 +29,13 @@ export function FilterSidebar({
   const [globalStart, setGlobalStart] = useState(1);
   const [globalEnd, setGlobalEnd] = useState(maxGw);
   const [teamsOpen, setTeamsOpen] = useState(false); // hidden by default: it's tall and rarely changed
+
+  // Switching season (or fetching new results) changes how far the data runs; follow it so the
+  // range reads as what the table actually contains.
+  useEffect(() => {
+    setGlobalStart(1);
+    setGlobalEnd(maxGw);
+  }, [maxGw]);
 
   const updateTeam = (team_code: number, patch: Partial<TeamFilterState>) => {
     onChange(teams.map((t) => (t.team_code === team_code ? { ...t, ...patch } : t)));
