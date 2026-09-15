@@ -47,8 +47,7 @@ export interface TableRequest {
 }
 
 export interface PlayerTableRequest extends TableRequest {
-  per90: boolean;
-  starts_only: boolean;
+  per_start: boolean;
   positions: string[] | null;
   projection_source?: string | null;
   projection_gameweeks?: number[] | null;
@@ -114,8 +113,7 @@ export interface ChartSeriesRequest extends TableRequest {
   entity_type: "player" | "team";
   entity_codes: number[];
   stats: string[];
-  per90: boolean;
-  starts_only: boolean;
+  per_start: boolean;
 }
 
 export interface SeriesPoint {

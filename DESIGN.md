@@ -427,3 +427,30 @@ arbitrary jump. Steps make step 1 the neutral baseline.
   drift column-for-column. Verified: 2026/27 ingests rounds 1-4 (2,547 rows, 657 players, 34s
   wall clock) where the archive gave 610 rows of round 1; 2025/26 through the archive path
   produces row-for-row identical tables to the pre-refactor code (all five tables hashed).
+
+## Post-launch fixes, round 7
+
+- **"Per 90" replaced with "Per Start"; "Starts only" removed.** Per-90 divides a stat by
+  minutes played and scales to 90 - which means a player subbed off after 15 minutes with a
+  lucky early goal gets extrapolated to a fictional 90-minute haul, and can outrank a player who
+  actually played the full match. That's small-sample distortion, not a real signal, and it got
+  worse the smaller the minutes sample got (an actual case: a defender subbed off injured after
+  9 minutes with 1 point topped the per-90 points table at 10.0/90).
+  "Per Start" fixes this by changing what the rate is *of*: instead of `stat / minutes * 90`, it's
+  `stat / number of starts`, scoped to starts only (folding in what the separate "Starts only"
+  toggle used to do, so that option is gone - it's now implied). A start is a start regardless of
+  whether it lasted 70 minutes or 90; both contribute exactly 1 to the denominator, so a 70-minute
+  start and a 90-minute start worth the same points now show the same rate, which is what "per
+  start" should mean. Backend: `query_players` and `_player_series` take a single `per_start: bool`
+  (replacing `per90`+`starts_only` everywhere - `queries.py`, `main.py`'s two request models, and
+  every frontend caller). No schema change - `starts` was already there; this only changes how the
+  existing column is used. Old seasons without `starts` data (pre-2022/23) return an empty table
+  under Per Start rather than crashing, same as the old Starts Only toggle already did - the
+  underlying data simply doesn't exist further back.
+  Verified against real data three ways: (1) the exact scenario from the bug report - one player
+  who started and played 70 minutes for 2 points, another who played the full 90 for 2 points,
+  both real rows from the same gameweek - now both show `2.0`, where per-90 would have shown
+  `2.57` and `2.0` respectively; (2) a player with 8 starts of varying length (82-90 minutes)
+  summing to 49 points shows exactly `49 / 8 = 6.125`, confirmed by hand against the raw
+  per-gameweek rows; (3) the actual reported case (9-minute start, 1 point) now shows `1.0`
+  rather than `10.0`, and no longer tops the list.

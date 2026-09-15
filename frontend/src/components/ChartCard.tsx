@@ -24,8 +24,7 @@ interface Props {
   seasonId: string;
   teamRanges: TeamRange[];
   opponentTeamCodes: number[] | null;
-  per90: boolean;
-  startsOnly: boolean;
+  perStart: boolean;
   onRemove: () => void;
 }
 
@@ -48,8 +47,7 @@ export function ChartCard({
   seasonId,
   teamRanges,
   opponentTeamCodes,
-  per90,
-  startsOnly,
+  perStart,
   onRemove,
 }: Props) {
   const [chartType, setChartType] = useState<ChartType>("timeseries");
@@ -81,7 +79,7 @@ export function ChartCard({
   const needsSeries = ["timeseries", "heatmap", "stacked", "small_multiples"].includes(chartType);
   const seriesStatsNeeded = chartType === "stacked" ? STACKED_BREAKDOWN_STATS : [stat];
 
-  const depsKey = JSON.stringify({ seasonId, teamRanges, opponentTeamCodes, per90, startsOnly, selected, seriesStatsNeeded, chartType });
+  const depsKey = JSON.stringify({ seasonId, teamRanges, opponentTeamCodes, perStart, selected, seriesStatsNeeded, chartType });
 
   useEffect(() => {
     if (!needsSeries || selected.length === 0 || !seasonId) {
@@ -98,8 +96,7 @@ export function ChartCard({
       entity_type: entityType,
       entity_codes: selected,
       stats: seriesStatsNeeded,
-      per90,
-      starts_only: startsOnly,
+      per_start: perStart,
     })
       .then(setSeriesData)
       .finally(() => setLoading(false));

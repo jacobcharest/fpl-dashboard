@@ -9,8 +9,7 @@ interface Props {
   seasonId: string;
   teamRanges: TeamRange[];
   opponentTeamCodes: number[] | null;
-  per90: boolean;
-  startsOnly: boolean;
+  perStart: boolean;
 }
 
 let nextId = 1;

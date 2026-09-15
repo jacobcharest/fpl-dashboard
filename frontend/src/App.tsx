@@ -29,8 +29,7 @@ function App() {
   const [playerFilters, setPlayerFilters] = useState<NumericFilter[]>([]);
   const [teamNumericFilters, setTeamNumericFilters] = useState<NumericFilter[]>([]);
   const [positions, setPositions] = useState<string[] | null>(null);
-  const [per90, setPer90] = useState(false);
-  const [startsOnly, setStartsOnly] = useState(false);
+  const [perStart, setPerStart] = useState(false);
   const [loading, setLoading] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -136,8 +135,7 @@ function App() {
         opponent_team_codes: opponentTeamCodes,
         filters: playerFilters,
         sort: playerSort,
-        per90,
-        starts_only: startsOnly,
+        per_start: perStart,
         positions,
         projection_source: projection.source,
         projection_gameweeks: projection.gameweeks,
@@ -165,8 +163,7 @@ function App() {
     teamSort,
     playerFilters,
     teamNumericFilters,
-    per90,
-    startsOnly,
+    perStart,
     positions,
     projection,
     refreshNonce,
@@ -272,10 +269,8 @@ function App() {
           onChange={setTeamFilters}
           maxGw={lastPlayedGw}
           showPlayerToggles={viewMode === "players"}
-          per90={per90}
-          onPer90Change={setPer90}
-          startsOnly={startsOnly}
-          onStartsOnlyChange={setStartsOnly}
+          perStart={perStart}
+          onPerStartChange={setPerStart}
         />
 
         {viewMode === "players" ? (
@@ -287,7 +282,7 @@ function App() {
             onFiltersChange={setPlayerFilters}
             positions={positions}
             onPositionsChange={setPositions}
-            per90={per90}
+            perStart={perStart}
             squad={squad}
             projLabel={projection.source ? gameweekLabel(projection.gameweeks) : null}
           />
@@ -322,8 +317,7 @@ function App() {
         seasonId={seasonId}
         teamRanges={teamRanges}
         opponentTeamCodes={opponentTeamCodes}
-        per90={per90}
-        startsOnly={startsOnly}
+        perStart={perStart}
       />
     </div>
   );

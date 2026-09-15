@@ -11,7 +11,7 @@ const helper = createColumnHelper<PlayerRow>();
 const fmt = (digits: number) => (v: number | null | undefined) => (v == null ? "-" : v.toFixed(digits));
 const fmtPct = (v: number | null | undefined) => (v == null ? "-" : `${v.toFixed(1)}%`);
 
-function buildColumns(per90: boolean, squad: Map<number, SquadPick>, projLabel: string | null): ColumnDef<PlayerRow, any>[] {
+function buildColumns(perStart: boolean, squad: Map<number, SquadPick>, projLabel: string | null): ColumnDef<PlayerRow, any>[] {
   return [
     helper.accessor("web_name", {
       header: "Player",
@@ -29,9 +29,9 @@ function buildColumns(per90: boolean, squad: Map<number, SquadPick>, projLabel: 
     helper.accessor("position", { header: "Pos", cell: (i) => <PositionBadge position={i.getValue()} /> }),
     helper.accessor("price", { header: "Price", cell: (i) => `£${i.getValue().toFixed(1)}` }),
     helper.accessor("selected_by_percent", { header: "Own%", cell: (i) => fmtPct(i.getValue()) }),
-    // Per-90 points are a fractional rate (e.g. 7.4), not a whole count, so they need a decimal
-    // place to be meaningful - raw points stay integers.
-    helper.accessor("total_points", { header: "Pts", cell: (i) => fmt(per90 ? 1 : 0)(i.getValue()) }),
+    // Per-start points are a fractional rate (e.g. 7.4), not a whole count, so they need a
+    // decimal place to be meaningful - raw points stay integers.
+    helper.accessor("total_points", { header: "Pts", cell: (i) => fmt(perStart ? 1 : 0)(i.getValue()) }),
     helper.accessor("minutes", { header: "Mins", cell: (i) => fmt(0)(i.getValue()) }),
     helper.accessor("goals_scored", { header: "Goals", cell: (i) => fmt(2)(i.getValue()) }),
     helper.accessor("expected_goals", { header: "xG", cell: (i) => fmt(2)(i.getValue()) }),
@@ -100,7 +100,7 @@ interface Props {
   onFiltersChange: (filters: NumericFilter[]) => void;
   positions: string[] | null;
   onPositionsChange: (positions: string[] | null) => void;
-  per90: boolean;
+  perStart: boolean;
   /** The user's synced squad, keyed by player_code. Empty when nothing is synced. */
   squad: Map<number, SquadPick>;
   /** e.g. "GW1-4"; null hides the projection columns entirely. */
@@ -115,11 +115,11 @@ export function PlayerTable({
   onFiltersChange,
   positions,
   onPositionsChange,
-  per90,
+  perStart,
   squad,
   projLabel,
 }: Props) {
-  const columns = useMemo(() => buildColumns(per90, squad, projLabel), [per90, squad, projLabel]);
+  const columns = useMemo(() => buildColumns(perStart, squad, projLabel), [perStart, squad, projLabel]);
 
   return (
     <DataTable

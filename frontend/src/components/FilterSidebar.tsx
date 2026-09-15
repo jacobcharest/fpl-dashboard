@@ -8,10 +8,8 @@ interface Props {
   /** Last gameweek with data for this season - the upper bound of every range input. */
   maxGw: number;
   showPlayerToggles: boolean;
-  per90: boolean;
-  onPer90Change: (v: boolean) => void;
-  startsOnly: boolean;
-  onStartsOnlyChange: (v: boolean) => void;
+  perStart: boolean;
+  onPerStartChange: (v: boolean) => void;
 }
 
 /** The stats filters. Laid out as a bar above the table (not a side column) so the table
@@ -21,10 +19,8 @@ export function FilterSidebar({
   onChange,
   maxGw,
   showPlayerToggles,
-  per90,
-  onPer90Change,
-  startsOnly,
-  onStartsOnlyChange,
+  perStart,
+  onPerStartChange,
 }: Props) {
   const [globalStart, setGlobalStart] = useState(1);
   const [globalEnd, setGlobalEnd] = useState(maxGw);
@@ -58,12 +54,8 @@ export function FilterSidebar({
           <div className="sidebar-section filter-inline">
             <div className="section-title">Display</div>
             <label className="toggle-row">
-              <input type="checkbox" checked={per90} onChange={(e) => onPer90Change(e.target.checked)} />
-              Per 90
-            </label>
-            <label className="toggle-row">
-              <input type="checkbox" checked={startsOnly} onChange={(e) => onStartsOnlyChange(e.target.checked)} />
-              Starts only
+              <input type="checkbox" checked={perStart} onChange={(e) => onPerStartChange(e.target.checked)} />
+              Per Start
             </label>
           </div>
         )}

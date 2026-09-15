@@ -184,13 +184,19 @@ def _placeholders(values: list) -> str:
     return ", ".join("?" for _ in values)
 
 
-def query_players(conn, filters: TableFilters, per90: bool, starts_only: bool) -> list[dict]:
+def query_players(conn, filters: TableFilters, per_start: bool) -> list[dict]:
     player_gw, _fixtures, teams, players = load_season_frames(conn, filters.season_id)
 
     rows = _rows_in_team_windows(player_gw, filters.teams)
     if filters.opponent_team_codes is not None:
         rows = rows[rows["opponent_team_code"].isin(filters.opponent_team_codes)]
-    if starts_only:
+    if per_start:
+        # Scope to starts only, and rate by number of starts rather than minutes: dividing by
+        # minutes (the old "per 90" mode) let a player subbed off after 15 minutes with a lucky
+        # goal look like a far better rate than one who played the full 90 - small-sample
+        # extrapolation, not a real signal. Counting starts instead means a start is a start
+        # regardless of exactly how long it lasted, so a 70-minute start and a 90-minute start
+        # contribute equally to the denominator.
         rows = rows[rows["starts"] == 1]
 
     if rows.empty:
@@ -198,6 +204,7 @@ def query_players(conn, filters: TableFilters, per90: bool, starts_only: bool) -
 
     agg = rows.groupby("player_code").agg(
         minutes=("minutes", "sum"),
+        starts=("round", "size"),
         team_code=("team_code", "last"),
         price=("price", "last"),
         **{c: (c, "sum") for c in PLAYER_STAT_COLUMNS},
@@ -205,9 +212,9 @@ def query_players(conn, filters: TableFilters, per90: bool, starts_only: bool) -
 
     agg = agg.merge(_defensive_contribution_hit_rate(rows, players), on="player_code", how="left")
 
-    if per90:
+    if per_start:
         for c in PLAYER_STAT_COLUMNS:
-            agg[c] = (agg[c] / agg["minutes"] * 90).where(agg["minutes"] > 0)
+            agg[c] = (agg[c] / agg["starts"]).where(agg["starts"] > 0)
 
     projections = _projection_totals(conn, filters)
     if projections is not None:
@@ -411,7 +418,7 @@ TEAM_SERIES_STATS = ["goals_scored", "expected_goals", "goals_conceded", "expect
 
 
 def _player_series(conn, filters: TableFilters, entity_codes: list[int], stats: list[str],
-                    per90: bool, starts_only: bool) -> list[dict]:
+                    per_start: bool) -> list[dict]:
     """Per-(player, gameweek) values for the chart builder - same filters as query_players,
     just not collapsed across rounds."""
     player_gw, _fixtures, _teams, players = load_season_frames(conn, filters.season_id)
@@ -419,7 +426,7 @@ def _player_series(conn, filters: TableFilters, entity_codes: list[int], stats: 
     rows = _rows_in_team_windows(player_gw, filters.teams)
     if filters.opponent_team_codes is not None:
         rows = rows[rows["opponent_team_code"].isin(filters.opponent_team_codes)]
-    if starts_only:
+    if per_start:
         rows = rows[rows["starts"] == 1]
     rows = rows[rows["player_code"].isin(entity_codes)]
     if rows.empty:
@@ -427,12 +434,13 @@ def _player_series(conn, filters: TableFilters, entity_codes: list[int], stats: 
 
     agg = rows.groupby(["player_code", "round"]).agg(
         minutes=("minutes", "sum"),
+        starts=("round", "size"),
         **{s: (s, "sum") for s in stats},
     ).reset_index()
 
-    if per90:
+    if per_start:
         for s in stats:
-            agg[s] = (agg[s] / agg["minutes"] * 90).where(agg["minutes"] > 0)
+            agg[s] = (agg[s] / agg["starts"]).where(agg["starts"] > 0)
 
     agg = agg.merge(players[["player_code", "web_name"]], on="player_code", how="left")
     agg = agg.rename(columns={"player_code": "entity_code", "web_name": "name"})
@@ -482,7 +490,7 @@ def _team_series(conn, filters: TableFilters, entity_codes: list[int], stats: li
 
 
 def query_series(conn, filters: TableFilters, entity_type: str, entity_codes: list[int],
-                  stats: list[str], per90: bool, starts_only: bool) -> list[dict]:
+                  stats: list[str], per_start: bool) -> list[dict]:
     if entity_type == "player":
-        return _player_series(conn, filters, entity_codes, stats, per90, starts_only)
+        return _player_series(conn, filters, entity_codes, stats, per_start)
     return _team_series(conn, filters, entity_codes, stats)

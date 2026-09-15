@@ -124,8 +124,7 @@ class TableRequest(BaseModel):
 
 
 class PlayerTableRequest(TableRequest):
-    per90: bool = False
-    starts_only: bool = False
+    per_start: bool = False
     positions: list[str] | None = None
     projection_source: str | None = None
     # Explicit gameweeks to total projections over - any set, not necessarily contiguous.
@@ -136,8 +135,7 @@ class ChartSeriesRequest(TableRequest):
     entity_type: Literal["player", "team"]
     entity_codes: list[int]
     stats: list[str]
-    per90: bool = False
-    starts_only: bool = False
+    per_start: bool = False
 
 
 def _to_table_filters(req: TableRequest) -> TableFilters:
@@ -181,7 +179,7 @@ def list_teams(season_id: str):
 @app.post("/api/players")
 def players_table(req: PlayerTableRequest):
     conn = get_connection()
-    result = query_players(conn, _to_table_filters(req), per90=req.per90, starts_only=req.starts_only)
+    result = query_players(conn, _to_table_filters(req), per_start=req.per_start)
     conn.close()
     return result
 
@@ -203,8 +201,7 @@ def chart_series(req: ChartSeriesRequest):
         entity_type=req.entity_type,
         entity_codes=req.entity_codes,
         stats=req.stats,
-        per90=req.per90,
-        starts_only=req.starts_only,
+        per_start=req.per_start,
     )
     conn.close()
     return result
