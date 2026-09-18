@@ -119,6 +119,11 @@
     -webkit-overflow-scrolling: touch;
   }
 
+  /* Same cap for the fitted tables, which fall back to it on a phone (useFitToViewport). */
+  .fit-table .data-table-scroll {
+    max-height: var(--fit-height, calc(100vh - 140px));
+  }
+
   .filter-row th {
     padding: 4px 6px;
   }

@@ -38,6 +38,7 @@ from app.queries import (
     query_teams,
 )
 from app.my_team import get_my_team, sync_my_team
+from app.fplreview import refresh_projections
 from app.leagues import list_leagues, query_league_week, sync_if_stale
 from app.prices import capture_if_stale, query_prices
 from app.projections import import_projections, projection_sources
@@ -213,10 +214,14 @@ def chart_series(req: ChartSeriesRequest):
 def refresh_season(season_id: str):
     """Re-fetches this season and re-ingests it (idempotent - safe to run repeatedly). This is
     the "Fetch new data" button. The season in progress comes from the live FPL API; finished
-    seasons from the community archive - see app/refresh.py."""
+    seasons from the community archive - see app/refresh.py. For the live season it also pulls
+    FPL Review's latest projections (app/fplreview.py) - rate-limited, and never fatal: a
+    projections problem is reported in the summary, not raised."""
     conn = get_connection()
     try:
         summary = backfill_season(conn, season_id)
+        if summary.get("source") == "fpl-api":
+            summary["projections"] = refresh_projections(conn, season_id)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"{season_id}: {e}")
     finally:

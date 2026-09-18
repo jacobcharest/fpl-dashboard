@@ -1,0 +1,13 @@
+[Unit]
+Description=FPL dashboard: capture FPL Review projections before the gameweek deadline
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/fpl-dashboard
+# Exits at once unless a pre-deadline checkpoint is due (see app/fplreview.py); when it is, one
+# headless-browser page load and an import into data/fpl.db. A failure exits non-zero and the
+# next tick retries, since nothing was imported.
+ExecStart=%h/fpl-dashboard/backend/.venv/bin/python backend/scripts/fetch_fplreview.py --if-due
+TimeoutStartSec=300

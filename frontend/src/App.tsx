@@ -28,8 +28,9 @@ function App() {
   const [teamFilters, setTeamFilters] = useState<TeamFilterState[]>([]);
   const [playerRows, setPlayerRows] = useState<PlayerRow[]>([]);
   const [teamRows, setTeamRows] = useState<TeamRow[]>([]);
-  const [playerSort, setPlayerSort] = useState<SortSpec | null>(null);
-  const [teamSort, setTeamSort] = useState<SortSpec | null>(null);
+  // The backend's own fallbacks, stated up front so the header marks the sorted column from the start.
+  const [playerSort, setPlayerSort] = useState<SortSpec | null>({ column: "total_points", direction: "desc" });
+  const [teamSort, setTeamSort] = useState<SortSpec | null>({ column: "table_place", direction: "asc" });
   const [playerFilters, setPlayerFilters] = useState<NumericFilter[]>([]);
   const [teamNumericFilters, setTeamNumericFilters] = useState<NumericFilter[]>([]);
   const [positions, setPositions] = useState<string[] | null>(null);
@@ -91,7 +92,8 @@ function App() {
   }, [seasonId]);
 
   // Default the projection window to the next six unplayed gameweeks - what you'd actually plan
-  // transfers around - rather than whatever span the imported file happens to cover.
+  // transfers around - but never past what the imported file covers: a ticked week with no data
+  // behind it just makes the totals look like they span more than they do.
   const nextGw = useMemo(() => {
     const played = seasons.find((s) => s.id === seasonId)?.played_through ?? 0;
     return Math.min(played + 1, MAX_GW);
@@ -103,12 +105,14 @@ function App() {
       .then((sources) => {
         setProjSources(sources);
         const first = sources[0];
-        const end = Math.min(nextGw + PROJECTION_WEEKS - 1, MAX_GW);
-        const gameweeks = Array.from({ length: end - nextGw + 1 }, (_, i) => nextGw + i);
+        const start = Math.max(nextGw, first?.first_gw ?? nextGw);
+        const end = Math.min(nextGw + PROJECTION_WEEKS - 1, first?.last_gw ?? MAX_GW, MAX_GW);
+        const gameweeks = Array.from({ length: Math.max(end - start + 1, 0) }, (_, i) => start + i);
         setProjection({ source: first?.source ?? null, gameweeks });
       })
       .catch(() => setProjSources([]));
-  }, [seasonId, nextGw]);
+    // refreshNonce: Fetch New Data may have imported newer projections, moving the coverage.
+  }, [seasonId, nextGw, refreshNonce]);
 
   // Keyed by player_code so the table can look a row up in O(1); memoized so PlayerTable's
   // column defs aren't rebuilt on every render.
@@ -187,7 +191,8 @@ function App() {
     setRefreshMessage(null);
     refreshSeason(seasonId)
       .then((summary) => {
-        setRefreshMessage(`Updated: ${summary.gw_rows_inserted} gameweek rows, ${summary.players} players.`);
+        const proj = summary.projections ? ` · ${summary.projections.message}` : "";
+        setRefreshMessage(`Updated: ${summary.gw_rows_inserted} gameweek rows, ${summary.players} players${proj}.`);
         setRefreshNonce((n) => n + 1);
         // New results move played_through, which the gameweek filters and projection default follow.
         return getSeasons().then(setSeasons);

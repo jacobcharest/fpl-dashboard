@@ -84,9 +84,33 @@ plus team against the live FPL API. **Anything it can't match is reported, never
 dropped** - a name that's ambiguous across two players (there are several every season) is listed
 rather than guessed at.
 
-[FPL Review](https://fplreview.com/) premium members can import their CSV download directly. On
-the free tier the download is disabled, so `backend/scripts/fplreview_export.js` builds the same
-file from the page - see the instructions at the top of that file.
+**FPL Review is fetched for you.** For the live season, "Fetch New Data" also opens FPL Review's
+free planner in a headless browser, reads its projections (six gameweeks ahead) and imports them -
+at most once every three hours, and only once you've synced a team id, which FPL Review asks
+for. The result shows beside the refresh message; if it fails, the stats refresh still succeeds.
+To force it by hand:
+
+```bash
+backend/.venv/bin/python backend/scripts/fetch_fplreview.py
+```
+
+**FPL Review only shows upcoming gameweeks**, so a gameweek's projections have to be captured
+before its deadline - afterwards they can't be had, and the League page's projected scores for
+that week stay blank. Install the timer and it's automatic: it checks every half hour and fetches
+about 24 hours and again about 2 hours before each deadline (read from FPL's calendar, so moving
+deadlines are handled), retrying if a fetch fails:
+
+```bash
+ln -s "$PWD"/systemd/fpl-projections.{service,timer} ~/.config/systemd/user/
+systemctl --user daemon-reload
+systemctl --user enable --now fpl-projections.timer
+```
+
+It needs Chrome or Chromium and a matching `chromedriver` on the machine running the backend. If
+FPL Review changes its page and this breaks, the manual route still works: run
+`backend/scripts/fplreview_export.js` in the browser console (instructions at the top of that
+file) and import the download with the command above. Premium members can import their own CSV
+download the same way, which reaches 14 gameweeks ahead.
 
 Projections are stored per gameweek, so changing the window re-sums them without re-importing.
 With no projections loaded the columns are absent entirely rather than showing empty cells.

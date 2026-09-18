@@ -12,6 +12,7 @@ import type {
   SquadPick,
   TeamRange,
 } from "../types";
+import { useFitToViewport } from "../useFitToViewport";
 import { DataTable } from "./DataTable";
 import { PositionBadge } from "./PositionBadge";
 import { PositionFilter } from "./PositionFilter";
@@ -80,9 +81,11 @@ export function ProjectionsPanel({
   refreshNonce,
 }: Props) {
   const [table, setTable] = useState<ProjectionTable>({ gameweeks: [], played_through: null, rows: [] });
-  const [sort, setSort] = useState<SortSpec | null>(null);
+  // Matches the backend's fallback, stated here so the header shows which column is sorted.
+  const [sort, setSort] = useState<SortSpec | null>({ column: "xp_total", direction: "desc" });
   const [filters, setFilters] = useState<NumericFilter[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const fitRef = useFitToViewport<HTMLDivElement>();
 
   useEffect(() => {
     if (!seasonId || !projection.source) return;
@@ -131,10 +134,10 @@ export function ProjectionsPanel({
   const firstGw = table.gameweeks[0];
   const lastGw = table.gameweeks[table.gameweeks.length - 1];
   const covered = table.gameweeks.length ? `GW${firstGw}-${lastGw}` : null;
+  // What's left to plan with: gameweeks the source projected that haven't been played yet.
+  const upcoming = table.gameweeks.filter((g) => table.played_through == null || g > table.played_through).length;
   const selected = new Set(projection.gameweeks);
   const inside = table.gameweeks.filter((g) => selected.has(g)).length;
-  // Some ticked gameweeks reach past what the source has projected - the totals only cover the overlap.
-  const partial = covered !== null && inside > 0 && inside < selected.size;
   const none = covered !== null && selected.size > 0 && inside === 0;
   const setGameweeks = (gameweeks: number[]) =>
     onProjectionChange({ ...projection, gameweeks: [...gameweeks].sort((a, b) => a - b) });
@@ -149,13 +152,12 @@ export function ProjectionsPanel({
         <h2>Projections</h2>
         <span className="projections-meta">
           {covered && (
-            <>
-              {projection.source} covers {covered}
-              {table.played_through != null && firstGw <= table.played_through && (
-                <> (GW{firstGw}-{Math.min(table.played_through, lastGw)} already played)</>
-              )}
+            <span title={`${projection.source} has projections for ${covered}`}>
+              {upcoming > 0
+                ? `${projection.source} covers the next ${upcoming} ${upcoming === 1 ? "week" : "weeks"}`
+                : `${projection.source} has no upcoming weeks - import a newer file`}
               {" · "}
-            </>
+            </span>
           )}
           {table.rows.length} players
         </span>
@@ -202,31 +204,26 @@ export function ProjectionsPanel({
               or tick different weeks.
             </div>
           )}
-          {partial && !none && (
-            <div className="projections-note">
-              {projection.source} only covers {covered}, so these totals include just the gameweeks inside
-              {" "}
-              {range} that it projected.
-            </div>
-          )}
-          <DataTable
-            data={table.rows}
-            columns={columns}
-            sort={sort}
-            onSortChange={setSort}
-            getRowId={(row) => row.player_code}
-            filterableColumnIds={FILTERABLE_COLUMNS}
-            filters={filters}
-            onFiltersChange={setFilters}
-            customFilterColumns={{
-              position: <PositionFilter selected={positions} onChange={onPositionsChange} />,
-            }}
-            getRowClassName={(row) => {
-              const pick = squad.get(row.player_code);
-              if (!pick) return undefined;
-              return pick.squad_slot > 11 ? "my-team my-team-bench" : "my-team";
-            }}
-          />
+          <div className="fit-table" ref={fitRef}>
+            <DataTable
+              data={table.rows}
+              columns={columns}
+              sort={sort}
+              onSortChange={setSort}
+              getRowId={(row) => row.player_code}
+              filterableColumnIds={FILTERABLE_COLUMNS}
+              filters={filters}
+              onFiltersChange={setFilters}
+              customFilterColumns={{
+                position: <PositionFilter selected={positions} onChange={onPositionsChange} />,
+              }}
+              getRowClassName={(row) => {
+                const pick = squad.get(row.player_code);
+                if (!pick) return undefined;
+                return pick.squad_slot > 11 ? "my-team my-team-bench" : "my-team";
+              }}
+            />
+          </div>
         </div>
       </div>
     </section>

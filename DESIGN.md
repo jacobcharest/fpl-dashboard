@@ -686,3 +686,61 @@ Phones keep rank, team, GW, xP and total in the table; the rest is on the cards.
   skip. Verified in headless Chromium: the Projections view lists 655 players for GW5-10 with
   squad highlighting; the Players view has no projections panel and still has its charts.
 
+## Round 11: small UI fixes, fetched projections, and a refresh that can't erase data
+
+- **Default sort is shown.** Players, Teams and Projections were sorted by the backend's fallback
+  (`total_points` desc, `table_place` asc, `xp_total` desc) with `sort = null` on the client, so
+  no header was marked. The client now starts from those same specs.
+- **Fitted tables.** On Projections and Prices the table is the last thing on the page, but its
+  `100vh - 180px` cap ignored whatever sat above it, so the page scrolled as well as the table.
+  `useFitToViewport` measures the wrapper's top and publishes `--fit-height` so the table ends
+  at the window's bottom (a callback ref, since both pages mount the table after data arrives;
+  re-measured on resize and whenever the body changes size). Under 320px - phones - it steps
+  aside for the stylesheet cap. Players/Teams keep the cap: the charts live below them.
+- **Projections page copy**: the coverage line reads "fplreview covers the next N weeks" (N =
+  covered gameweeks not yet played; the exact range is the tooltip) and the partial-coverage
+  note is gone. The default window is still the next six unplayed gameweeks but is now clamped
+  to the source's coverage, so an unprojected week is never ticked. The team id box lost its
+  number spinner (still `type="number"` for the phone keypad).
+- **Projections are fetched, not pasted.** `app/fplreview.py` drives headless Chromium through
+  the free planner - connect the synced team id, open PROJECTIONS, run
+  `scripts/fplreview_export.js` *verbatim* with the download intercepted (`URL.createObjectURL`
+  and the anchor click are stubbed for the call; the Blob's text comes back) - then imports
+  `data/fplreview-latest.csv`. The console script remains the single definition of the file's
+  layout and the manual fallback. FPL Review has no public API and its bundle is obfuscated;
+  this deliberately does not reverse-engineer its data endpoint - it loads the page once, as a
+  person would. "Fetch New Data" calls `refresh_projections` for the live season: at most once
+  per 3 hours, needs a synced team, and **never fails the refresh** - its outcome is a
+  `projections: {status, message}` entry in the summary, shown beside the usual message.
+  `scripts/fetch_fplreview.py` forces a run by hand. New dependency: `selenium` (imported
+  lazily); Chrome/Chromium + chromedriver auto-detected, `FPL_CHROME_BINARY` /
+  `FPL_CHROMEDRIVER` override. It will break when FPL Review redesigns; each step's timeout
+  names the step.
+- **Pre-deadline capture is scheduled.** FPL Review's page only ever holds upcoming gameweeks
+  (checked: GW6-11 while GW5 was in play, nothing earlier, no archive on the free tier), so a
+  gameweek's projections must be captured before its deadline or they are unobtainable - and
+  the League page's projected-vs-actual depends on them. Deadlines move (Friday night, Saturday
+  lunchtime, midweek), which rules out a fixed weekly `OnCalendar`. `fpl-projections.timer`
+  ticks every 30 minutes and `fetch_fplreview.py --if-due` decides via `due_checkpoint`: fetch
+  when a checkpoint before the next deadline (`CHECKPOINTS` = 24h and 2h, from FPL's own
+  calendar) has passed with no import since. The 2h capture is the one that counts - final team
+  news, room to retry; the 24h one is insurance for a laptop asleep at the end. A failed fetch
+  imports nothing, so the next tick retries on its own, and `Persistent=true` plus the
+  "no import since the checkpoint" test means waking up inside the window fetches at once. Not
+  due is silent and costs one bootstrap request. Cases checked against the real GW6 deadline:
+  not due at T-3d and T-25h; due at T-23h; not again at T-20h; due at T-1.9h; not again at
+  T-1h; due on waking at T-0.5h; not due just after the deadline.
+- **A rate-limited refresh no longer erases data.** `fetch_history` returned `[]` for *any*
+  failure, and gameweek rows are delete-and-replace - so when FPL throttled a burst of
+  element-summary calls, the affected players' seasons were silently deleted. Seen for real: two
+  refreshes a minute apart wrote 2,384 then 2,106 rows where 3,211 exist. Failures are now
+  `None` (distinct from "no history"), retried one at a time after 2s and 5s pauses, and if any
+  remain the refresh raises *before writing anything*. Verified: the next refresh restored
+  3,211 rows with 0 players missing history (the earlier "2,547 rows" baseline in round 6 was
+  itself short for the same reason).
+- Verified: fetch + import ran in ~5s and brought GW6-11 for 659 players while GW5's rows
+  (imported 12 Sep) were left untouched; the same fetch succeeds from a transient systemd user
+  unit, i.e. in the always-on service's environment; a refresh inside the 3h window reports
+  "already updated". Page checks in headless Chromium: sorted-header markers on all three
+  tables; Projections and Prices pages have `scrollHeight == innerHeight` at 1600x1000.
+
