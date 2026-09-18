@@ -19,10 +19,12 @@ summing player-level expected_goals grouped by (fixture, team).
 
 from dataclasses import dataclass, field
 
+import numpy as np
 import pandas as pd
 
 PLAYER_STAT_COLUMNS = [
     "total_points",
+    "expected_points",
     "goals_scored",
     "expected_goals",
     "assists",
@@ -46,6 +48,24 @@ PLAYER_STAT_COLUMNS = [
 # actions (clearances/blocks/interceptions/tackles) in a match, a midfielder or forward needs
 # 12+ (same plus recoveries). Goalkeepers aren't part of this scheme at all.
 DC_THRESHOLD = {"DEF": 10, "MID": 12, "FWD": 12}
+
+# Scoring rules for the only outcomes that have an expected-stat counterpart (see
+# _with_expected_points). These are the long-stable core of FPL scoring; a goalkeeper goal was
+# 6 before 2024/25, but goalkeeper xG is ~0 so the single value is harmless.
+GOAL_POINTS = {"GK": 10, "DEF": 6, "MID": 5, "FWD": 4}
+ASSIST_POINTS = 3
+# FPL credits "fantasy assists" that xA can't see (penalties/free kicks won, rebounds, forced
+# own goals), so assists run a steady ~1.39x xA league-wide (1.42, 1.37, 1.38 over
+# 2023/24-2025/26). Unscaled, every creator would look like a permanent over-performer.
+FANTASY_ASSISTS_PER_XA = 1.39
+CLEAN_SHEET_POINTS = {"GK": 4, "DEF": 4, "MID": 1, "FWD": 0}
+CONCEDE_PENALTY_POSITIONS = ["GK", "DEF"]  # -1 per 2 goals conceded
+# P(clean sheet | 60+ mins) = exp(-(a + b * xGC)), fitted by maximum likelihood on every 60+
+# minute appearance of 2023/24-2025/26. Plain Poisson exp(-xGC) over-predicts clean sheets
+# (0.35 vs 0.29 actual in 2025/26): a single match's xGC is a noisy read of the true rate and
+# exp(-x) is convex, plus own goals never show up in xGC. Uncalibrated, that bias short-changed
+# every defender by ~0.25 points a game.
+CLEAN_SHEET_FIT = (0.09, 1.16)
 
 
 @dataclass
@@ -98,7 +118,59 @@ def load_season_frames(conn, season_id: str):
         conn,
         params=(season_id,),
     )
-    return player_gw, fixtures, teams, players
+    return _with_expected_points(player_gw, players), fixtures, teams, players
+
+
+def _with_expected_points(player_gw: pd.DataFrame, players: pd.DataFrame) -> pd.DataFrame:
+    """Add a backward-looking `expected_points` per (player, fixture): the points the player's
+    underlying numbers in that match were worth. Not a forecast - that's player_projections.xp.
+
+    Rather than rebuilding a score from every rule (position-specific, changed across seasons,
+    and several inputs like penalty misses/own goals aren't stored), start from the real
+    total_points and swap only the luck-prone outcomes for their expectation:
+
+        goals -> xG, assists -> xA (scaled to FPL's assist rate), clean sheet -> P(clean
+        sheet | xGC), goals-conceded penalty -> E[floor(N/2)] with N ~ Poisson(xGC)
+
+    Everything else (appearance, bonus, saves, defensive contribution, cards, ...) stays at its
+    actual value, so total_points - expected_points is exactly the finishing/clean-sheet luck.
+    FPL's expected_goals_conceded only covers the player's own time on the pitch, which is also
+    what clean-sheet and goals-conceded points are judged on. NaN where there is no xG data
+    (pre-2022/23, early 2022/23) or no scoring position (2024/25 assistant managers).
+    """
+    position = player_gw["player_code"].map(players.set_index("player_code")["position"])
+    goal_pts = position.map(GOAL_POINTS)
+    cs_pts = position.map(CLEAN_SHEET_POINTS)
+    concedes = position.isin(CONCEDE_PENALTY_POSITIONS).astype(float)
+
+    xgc = player_gw["expected_goals_conceded"].astype(float)
+    cs_a, cs_b = CLEAN_SHEET_FIT
+    actual = (
+        goal_pts * player_gw["goals_scored"]
+        + ASSIST_POINTS * player_gw["assists"]
+        + cs_pts * player_gw["clean_sheets"]
+        - concedes * (player_gw["goals_conceded"] // 2)
+    )
+    expected = (
+        goal_pts * player_gw["expected_goals"].astype(float)
+        + ASSIST_POINTS * FANTASY_ASSISTS_PER_XA * player_gw["expected_assists"].astype(float)
+        # A clean sheet needs 60+ minutes.
+        + cs_pts * (player_gw["minutes"] >= 60) * np.exp(-(cs_a + cs_b * xgc))
+        # E[floor(N/2)] = (E[N] - P(N odd)) / 2, and P(N odd) = (1 - e^(-2*lambda)) / 2.
+        - concedes * (xgc / 2 - (1 - np.exp(-2 * xgc)) / 4)
+    )
+    expected_points = player_gw["total_points"] - actual + expected
+    # 2022/23 only has xG from GW16 on; before that the source zero-fills it rather than leaving
+    # it NULL, which would read as "certain clean sheet, no attacking threat". A whole round
+    # with no xG at all is missing data, not a real result.
+    round_xg = player_gw.groupby("round")["expected_goals"].transform("sum")
+    return player_gw.assign(expected_points=expected_points.where(round_xg > 0))
+
+
+def _stat_aggs(stats: list[str]) -> dict:
+    """Named aggregations summing each stat. expected_points keeps NaN when every row is NaN -
+    a plain sum would turn "no xG data" into 0, i.e. "expected to score nothing"."""
+    return {s: (s, (lambda v: v.sum(min_count=1)) if s == "expected_points" else "sum") for s in stats}
 
 
 def _records(df: pd.DataFrame) -> list[dict]:
@@ -207,7 +279,7 @@ def query_players(conn, filters: TableFilters, per_start: bool) -> list[dict]:
         starts=("round", "size"),
         team_code=("team_code", "last"),
         price=("price", "last"),
-        **{c: (c, "sum") for c in PLAYER_STAT_COLUMNS},
+        **_stat_aggs(PLAYER_STAT_COLUMNS),
     ).reset_index()
 
     agg = agg.merge(_defensive_contribution_hit_rate(rows, players), on="player_code", how="left")
@@ -435,7 +507,7 @@ def _player_series(conn, filters: TableFilters, entity_codes: list[int], stats: 
     agg = rows.groupby(["player_code", "round"]).agg(
         minutes=("minutes", "sum"),
         starts=("round", "size"),
-        **{s: (s, "sum") for s in stats},
+        **_stat_aggs(stats),
     ).reset_index()
 
     if per_start:

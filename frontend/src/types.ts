@@ -64,6 +64,7 @@ export interface PlayerRow {
   selected_by_percent: number | null; // ownership %; null until the season is (re)fetched
   minutes: number;
   total_points: number;
+  expected_points: number | null; // backward-looking; null where the season/round has no xG data
   goals_scored: number;
   expected_goals: number;
   assists: number;

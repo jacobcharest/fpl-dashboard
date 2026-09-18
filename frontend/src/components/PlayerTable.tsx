@@ -32,6 +32,16 @@ function buildColumns(perStart: boolean, squad: Map<number, SquadPick>, projLabe
     // Per-start points are a fractional rate (e.g. 7.4), not a whole count, so they need a
     // decimal place to be meaningful - raw points stay integers.
     helper.accessor("total_points", { header: "Pts", cell: (i) => fmt(perStart ? 1 : 0)(i.getValue()) }),
+    // Backward-looking: what the xG/xA/xGA already posted in these games was worth. Distinct
+    // from the forward-looking projected "xP" at the far end of the table.
+    helper.accessor("expected_points", {
+      header: () => (
+        <span title="Expected points from the games already played: actual points with goals, assists, clean sheets and goals conceded swapped for their xG / xA / xGA expectation. Not a projection.">
+          xPts
+        </span>
+      ),
+      cell: (i) => fmt(1)(i.getValue()),
+    }),
     helper.accessor("minutes", { header: "Mins", cell: (i) => fmt(0)(i.getValue()) }),
     helper.accessor("goals_scored", { header: "Goals", cell: (i) => fmt(2)(i.getValue()) }),
     helper.accessor("expected_goals", { header: "xG", cell: (i) => fmt(2)(i.getValue()) }),
@@ -73,6 +83,7 @@ const FILTERABLE_COLUMNS = [
   "price",
   "selected_by_percent",
   "total_points",
+  "expected_points",
   "minutes",
   "goals_scored",
   "expected_goals",
