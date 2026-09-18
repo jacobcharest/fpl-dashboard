@@ -1,0 +1,344 @@
+.league-header {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin-bottom: 12px;
+}
+
+.league-header h2 {
+  font-size: 16px;
+  font-weight: 700;
+  margin: 0;
+  color: var(--text);
+}
+
+.league-header select {
+  background: var(--surface-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 5px 9px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+}
+
+.league-meta {
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
+/* Gameweek picker: one tab per gameweek played, a single choice (unlike the projections
+   panel's tick boxes, which sum a set). */
+.gw-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 14px;
+}
+
+.gw-tab {
+  padding: 5px 11px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text-dim);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.gw-tab:hover {
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+.gw-tab-on {
+  background: var(--accent-soft);
+  border-color: var(--accent-dim);
+  color: var(--accent);
+}
+
+/* Standings. Short enough (a league of friends) never to need the board's viewport cap. */
+.league-table-scroll {
+  max-height: none;
+  margin-bottom: 18px;
+}
+
+.league-table th {
+  cursor: default;
+}
+
+/* Doubled class: DataTable.css right-aligns every cell and loads after this file. */
+.data-table.league-table th,
+.data-table.league-table td {
+  text-align: left;
+}
+
+.data-table.league-table .league-num,
+.data-table.league-table th:nth-child(3),
+.data-table.league-table th:nth-child(4),
+.data-table.league-table th:nth-child(5),
+.data-table.league-table th:nth-child(7),
+.data-table.league-table th:nth-child(8),
+.data-table.league-table th:nth-child(10) {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.league-rank {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.rank-move {
+  margin-left: 4px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.league-team b {
+  display: block;
+  color: var(--text);
+}
+
+.league-team span {
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
+.league-strong {
+  font-weight: 700;
+  color: var(--text);
+}
+
+.league-chips-used span {
+  margin-right: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-dim);
+}
+
+.league-chips-used sub {
+  margin-left: 1px;
+  font-weight: 500;
+  color: var(--text-faint);
+}
+
+.chip-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  background: var(--accent-2-soft);
+  color: #b79cff;
+}
+
+.chip-hit {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+/* One card per team, in table order. */
+.team-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  gap: 14px;
+  align-items: start;
+}
+
+.team-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  padding: 12px 14px 10px;
+}
+
+.team-card-me {
+  border-color: var(--accent-dim);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.team-card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.team-card-rank {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  line-height: 26px;
+  border-radius: 50%;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 700;
+  background: var(--surface-3);
+  color: var(--text-dim);
+}
+
+.team-card-title {
+  flex: 1;
+  min-width: 0;
+}
+
+.team-card-title h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.team-card-title span {
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
+.team-card-score {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.team-card-points {
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+.team-card-xp {
+  font-size: 11px;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.team-card-flags {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.team-card-empty {
+  margin: 12px 0 4px;
+  font-size: 13px;
+  color: var(--text-faint);
+}
+
+/* Lineup rows share one grid so xP and Pts line up down the card. */
+.pick-head,
+.pick {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 38px 40px 32px;
+  align-items: center;
+  column-gap: 6px;
+}
+
+.pick-head {
+  grid-template-columns: minmax(0, 1fr) 40px 32px;
+  margin-top: 10px;
+  padding-bottom: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-faint);
+}
+
+.pick-head span:not(:first-child) {
+  text-align: right;
+}
+
+.pick-head-bench {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--border-strong);
+}
+
+.pick-group {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0 8px;
+  border-left: 2px solid var(--border);
+}
+
+.pick-group + .pick-group {
+  margin-top: 3px;
+}
+
+.pick-group:empty {
+  display: none;
+}
+
+.pick-group-GK {
+  border-left-color: var(--pos-gk);
+}
+
+.pick-group-DEF {
+  border-left-color: var(--pos-def);
+}
+
+.pick-group-MID {
+  border-left-color: var(--pos-mid);
+}
+
+.pick-group-FWD {
+  border-left-color: var(--pos-fwd);
+}
+
+.pick {
+  padding: 2.5px 0;
+  font-size: 13px;
+}
+
+.pick-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+}
+
+.pick-team {
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+.pick-xp,
+.pick-points {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.pick-xp {
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
+.pick-points {
+  font-weight: 700;
+  color: var(--text);
+}
+
+.pick-blank {
+  color: var(--text-faint);
+  font-weight: 500;
+}
+
+.pick-benched .pick-name,
+.pick-benched .pick-points {
+  color: var(--text-dim);
+  font-weight: 400;
+}
+
+.pick-sub {
+  margin-left: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--warning);
+  cursor: help;
+}

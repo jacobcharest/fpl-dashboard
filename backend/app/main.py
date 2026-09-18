@@ -38,6 +38,8 @@ from app.queries import (
     query_teams,
 )
 from app.my_team import get_my_team, sync_my_team
+from app.leagues import list_leagues, query_league_week, sync_if_stale
+from app.prices import capture_if_stale, query_prices
 from app.projections import import_projections, projection_sources
 from app.refresh import backfill_season, seed_seasons
 
@@ -239,6 +241,47 @@ def my_team_sync(season_id: str, req: MyTeamSyncRequest):
     conn = get_connection()
     try:
         return sync_my_team(conn, season_id, req.entry_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Couldn't reach the FPL API: {e}")
+    finally:
+        conn.close()
+
+
+@app.get("/api/prices/{season_id}")
+def prices(season_id: str):
+    """The Prices page: every player's price, how it has moved, and the transfer traffic behind
+    it. For the live season this also takes a fresh snapshot first (rate-limited - see
+    app/prices.py), so the table is current rather than as-of-last-night; a failed fetch
+    degrades to the stored snapshot with a warning instead of an error."""
+    conn = get_connection()
+    try:
+        warning = capture_if_stale(conn, season_id)
+        return {**query_prices(conn, season_id), "warning": warning}
+    finally:
+        conn.close()
+
+
+@app.get("/api/leagues/{season_id}")
+def leagues(season_id: str):
+    """The private leagues the synced team belongs to (empty until "Sync My Team" has run)."""
+    conn = get_connection()
+    try:
+        return list_leagues(conn, season_id)
+    finally:
+        conn.close()
+
+
+@app.get("/api/leagues/{season_id}/{league_id}")
+def league_week(season_id: str, league_id: int, event: int | None = None):
+    """One gameweek of a league: each team's lineup, projected and actual points, chip, league
+    rank and season total. Syncs from the FPL API first when the stored copy is stale; finished
+    gameweeks are only ever fetched once - see app/leagues.py."""
+    conn = get_connection()
+    try:
+        warning = sync_if_stale(conn, season_id, league_id)
+        return {**query_league_week(conn, season_id, league_id, event), "warning": warning}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:

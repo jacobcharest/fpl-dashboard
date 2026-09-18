@@ -24,6 +24,9 @@
   --danger: #ff5c7a;
   --danger-bg: #2a151c;
   --danger-border: #4a2230;
+  /* signed values: a price or transfer count that went up / down */
+  --up: var(--accent);
+  --down: var(--danger);
   --warning: #f5a623;
   --warning-bg: #2a2013;
   --warning-border: #4a3a1e;

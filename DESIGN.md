@@ -18,6 +18,8 @@ depend on chat history.
 - **Official FPL API** (`fantasy.premierleague.com/api/...`, no auth): `bootstrap-static/`,
   `fixtures/`, `element-summary/{id}/`. Used for the **current season, live** — refreshed
   on-demand via a "Fetch new data" button (weekly cadence, manual trigger, no scheduler needed).
+  The one exception is price tracking, which *is* scheduled - prices move nightly and the API
+  keeps no history, so a missed day is gone for good (see "Round 8: Prices page").
   `element-summary` only gives gameweek-level history for the *current* season; past seasons
   there are season-total-only.
 - **Historical archive**: [vaastav/Fantasy-Premier-League](https://github.com/vaastav/Fantasy-Premier-League)
@@ -454,3 +456,214 @@ arbitrary jump. Steps make step 1 the neutral baseline.
   summing to 49 points shows exactly `49 / 8 = 6.125`, confirmed by hand against the raw
   per-gameweek rows; (3) the actual reported case (9-minute start, 1 point) now shows `1.0`
   rather than `10.0`, and no longer tops the list.
+
+## Round 8: Prices page (feature spec)
+
+A third view beside Players and Teams. Players/Teams answer "who is good"; this answers "whose
+price is about to move, and what is my squad actually worth" - the two questions behind building
+team value.
+
+### The rules it is built on
+
+- FPL reprices once a night (~01:30 UK), at most 0.1 per player per night, on **net transfers
+  relative to how many managers own the player**. The thresholds are unpublished and have been
+  retuned between seasons.
+- **You keep half of a rise, rounded down to 0.1, and wear all of a fall**: selling price is
+  `paid + floor((now - paid) / 2)` when `now >= paid`, else `now`. Bought at 7.5, now 7.8: sells
+  for 7.6. Bought at 6.5, now 6.3: sells for 6.3. One function, `prices.selling_price`, in tenths.
+- FPL's headline "team value" is the squad at *market* price plus bank - it overstates what you
+  can spend by exactly the half-rises FPL would keep. The page shows both.
+
+### Why it needs its own data
+
+The API serves only the present: `now_cost`, `cost_change_event`, `cost_change_start`, and the
+transfer counters. `player_gw_stats.price` is one reading per gameweek, which can't see a rise
+and a fall inside the same week or say *which night* anything happened. So history is recorded
+as it happens - the only scheduled job in the app:
+
+- `price_snapshot_days (season_id, price_day, captured_at, event, total_players)` - one row per
+  captured day. `total_players` turns ownership % into a head count.
+- `player_price_snapshots (season_id, player_code, price_day, now_cost, cost_change_event,
+  cost_change_start, transfers_in, transfers_out, transfers_in_event, transfers_out_event,
+  selected_by_percent, status)` - ~660 rows a day, ~180k a season. Both season-cumulative and
+  per-gameweek transfer counters are kept: day-over-day deltas must come from the cumulative
+  pair, because the per-gameweek pair resets at every deadline.
+- **Price day** = the UK date, rolled over at 02:00 UK rather than midnight, so a reading at
+  00:40 UK (before that night's change) still belongs to the day whose change it precedes.
+- **Captures within a day overwrite.** Each day therefore ends up holding its *last* reading -
+  the closest available to the counts FPL decided that night's change on, which is what the
+  "since last change" baseline and any future threshold calibration want. Price itself is
+  constant within a price day, so nothing is lost by overwriting.
+- Three capture paths, all the same `prices.capture_snapshot` (one `bootstrap-static` request):
+  `systemd/fpl-prices-snapshot.timer` at 02:30 and 23:30 Europe/London (`Persistent=true`, so a
+  sleeping laptop catches up on wake); opening the Prices page (skipped if a reading is under
+  10 minutes old); and "Fetch New Data", which already holds the bootstrap. A failed live fetch
+  on page load degrades to the stored snapshot plus a warning rather than an error.
+
+### `GET /api/prices/{season_id}`
+
+Returns `{price_day, captured_at, event, prev_day, week_day, first_day, snapshot_days,
+total_players, unlisted, squad, warning, rows}`. The whole season is one payload (~660 rows), so
+the page sorts and filters client-side - unlike the stats tables, whose rows are aggregated
+server-side per request. A season with no snapshots returns `price_day: null` and no rows.
+
+Per-row columns, all money in GBP m:
+
+| Column | Meaning | Needs |
+|---|---|---|
+| Price, Δ GW, Δ Season, Own%, In, Out, Net GW | straight from the live API | nothing |
+| Δ Day, Net Day | vs `prev_day`, the previous stored day (named in the header tooltip, so a gap after a missed day is visible rather than silently labelled "yesterday") | 2 days |
+| Δ Week | vs `week_day`, the latest stored day at least 7 days back | 7 days |
+| Net since Δ | net transfers since the player's price last changed | see below |
+| Pressure | `Net since Δ / (Own% x total_players)`, as a % | same |
+| Paid, Sell, Profit | squad only | a synced squad |
+
+**Net since Δ** uses the best baseline it has, and says which (`since_basis`, shown on hover):
+`change` - a change was seen in the snapshots, so count from the last stored day at the old
+price; `gameweek` - no change seen and tracking began inside this gameweek, but
+`cost_change_event == 0`, so FPL's own per-gameweek counter is a clean and longer window (this
+is what makes the page useful on day one); `tracking` - otherwise from the first stored day, a
+lower bound.
+
+**Pressure is a ranking signal, not a prediction**, and the UI says so. It is blank under 1,000
+owners, where a single mini-league moves it. No "will rise tonight" flag ships in v1: inventing
+thresholds would be false precision, and the public predictors that do this have years of
+calibration data this app doesn't have yet.
+
+### Squad valuation
+
+Purchase prices are only served to a logged-in session, so they are reconstructed from public
+endpoints during "Sync My Team": a pick's price is its most recent transfer *in* from
+`entry/{id}/transfers/` (`element_in_cost`); a pick never transferred in has been held since the
+entry's first gameweek and cost its start price (`now_cost - cost_change_start`; prices don't
+move before the first deadline). Free Hit gameweeks (from `entry/{id}/history/` chips) are
+skipped - that squad reverts, prices included. An entry that joined after GW1 gets that
+gameweek's `player_gw_stats.price` instead, flagged `purchase_estimated` and starred in the UI.
+Stored as `manager_squad.purchase_price / purchase_estimated` and `manager_entry.bank /
+started_event` (via `ADDED_COLUMNS`). Reconstruction failing never fails the sync.
+
+Tiles above the table: **Team value** (market + bank, FPL's figure), **Sale value** (selling
+prices + bank - what you can actually spend), **Banked profit** (sell - paid), **Lost to the 50%
+rule** (market - sell), **Bank**.
+
+### UI
+
+- Toolbar "View" gains **Prices**. The stats sidebar, projections panel and charts are hidden -
+  none of their filters apply - and `App`'s table fetch is skipped.
+- `components/PricesPage.tsx` owns its fetch, like `ProjectionsPanel`, and reuses `DataTable`
+  (so sticky header/first column, the > < filter row and squad-row highlighting come free),
+  `PositionFilter` and `PositionBadge`. Adds a name/team search and a "My squad only" toggle.
+- Column order puts Pressure and Net since Δ beside Price: the table is wider than most screens
+  and the right edge is a scroll away. Paid/Sell/Profit trail the table, and jump to beside
+  Price when "My squad only" is on.
+- First use of signed-value colour in the app: `--up` / `--down` tokens in `theme.css` (aliases
+  of `--accent` / `--danger`), via `.delta-up` / `.delta-down`; zero and blank are dimmed, since
+  "didn't move" is the common case. A true minus sign, tabular figures.
+- Availability flag (`!`, amber for doubtful, red otherwise) beside the name - an injury is the
+  usual reason behind a wave of transfers out.
+- Phones hide In, Out, Δ Week, Δ Season and Net Day; tiles go two-up.
+- Default sort: Pressure, descending. Blanks sort last in both directions.
+
+### Verified
+
+- First capture stored 659 players for 2026/27; the endpoint returns 659 rows, 0 unlisted.
+- Squad valuation against FPL's own number for team 3935569 at GW5: 15 market prices sum to
+  100.0 + 0.2 bank = **100.2, matching `entry_history.value` (1002) exactly**. Sale value 99.8;
+  the 0.4 gap is three players' kept-back rises (João Pedro 7.5 -> 7.8 sells 7.6, 0.2 kept
+  back; Haaland and Gibbs-White +0.1 each, selling at cost), and Anderson's 6.5 -> 6.3 fall is
+  carried in full - each checked by hand.
+- The timer fired on demand via `systemctl --user start`, and lists its next run at 23:3x UK.
+- Page checked in headless Chromium at 1600px and 420px, with and without "My squad only".
+- `tsc -b`, `oxlint` (no new warnings) and `vite build` clean. A past season shows the
+  "no snapshots" note rather than an empty table.
+- **Not yet verifiable:** Δ Day, Δ Week, Net Day and the `change` baseline need a second stored
+  day. Re-check after the first overnight change: a player FPL reports as `cost_change_event
+  != 0` should show the same move under Δ Day, and flip from `gameweek` to `change`.
+
+### Phase 2 (needs accumulated snapshots - not built)
+
+1. **Calibrated rise/fall likelihood.** With ~4+ weeks of days, every observed change is a
+   labelled example: the net-since-change and ownership on the day before it. Fit the threshold
+   as a function of owners separately for rises and falls, and only then show a "likely tonight"
+   flag - with its hit rate over the trailing weeks displayed beside it. Ship it only if it beats
+   the naive "top N by pressure" baseline on held-out nights.
+2. **Price history chart** per player (the chart builder's time series, fed from snapshots).
+3. **Transfer planner tie-in**: what a planned sale actually raises (selling price, not
+   market), and "sell before it falls / buy before it rises" flags on the weekly plan.
+4. Known limits to revisit: a day's reading is its last capture, so transfers between that
+   capture and ~01:30 are attributed to the following day; a missed day merges two nights'
+   changes into one Δ Day; wildcard-era purchase prices rely on the transfers list being complete.
+
+## Round 9: League page (feature spec)
+
+A fourth view: the user's private mini-league, one gameweek at a time - each team's lineup,
+projected and actual points, chip, league rank and season total.
+
+### Data (all public FPL endpoints, no login)
+
+- `entry/{me}/` -> `leagues.classic`, filtered to `league_type == "x"` (manager-created; `"s"`
+  are FPL's own Overall/country/club leagues with 100,000s of members). The league list hangs
+  off the synced team, so the page needs "Sync My Team" first and nothing else.
+- `leagues-classic/{id}/standings/` -> members. Page one only (`MAX_ENTRIES = 50`): every entry
+  costs a request per gameweek, and this is for a league of friends.
+- `entry/{id}/history/` -> per-gameweek points, season total, transfers, hits, bench points,
+  overall rank, value, and the chips list. One call per entry covers the whole season.
+- `entry/{id}/event/{gw}/picks/` -> the squad, readable once the deadline passes.
+- `event/{gw}/live/` -> every player's points and minutes for the gameweek.
+
+Stored in `leagues`, `league_entries`, `entry_events`, `entry_picks`. The last two are keyed by
+entry, not league, so a rival in two of the user's leagues is fetched once. A gameweek FPL marks
+`finished` and `data_checked` is stored `final = 1` and never fetched again; only the gameweek
+in play is re-read. First load of a 7-team league at GW5: 35 picks + 5 live + 7 history calls on
+an 8-thread pool, 2.7s. `GET /api/leagues/{season}/{league}?event=N` syncs first if the stored
+copy is over 5 minutes old and degrades to stored data plus a warning if FPL is unreachable.
+
+### Decisions
+
+- **League rank per gameweek is rebuilt, not fetched.** The standings endpoint only serves the
+  current table; ranking each member's `total_points` after gameweek N reproduces the table as
+  it stood (competition ranking, so ties share a place). Movement is against the previous
+  gameweek's rebuilt table.
+- **The lineup shown is the one picked.** After a gameweek ends the picks endpoint reports the
+  squad post-automatic-substitution. Those swaps are undone for display and projection and
+  marked (↑ came on, ↓ substituted off). Actual points always use FPL's own multipliers.
+- **Projected points** = sum over the picked XI of `xp x intent`, where intent is 2 for the named
+  captain (3 under Triple Captain), and the bench counts only under Bench Boost. Intent, not
+  outcome: the armband passing to the vice is something that happened, not something projected.
+- **A pick's projection is written once.** `entry_picks.xp` is filled the first time a
+  projection exists for that pick and never rewritten, so a later import can't revise history.
+  Related change to `import_projections`: it now replaces **only the gameweeks the new file
+  covers** instead of wiping the source. Files look forward, so the old behaviour destroyed every
+  played gameweek's projection on the next import. The Projections panel already dims
+  played weeks, so lingering past rounds need no UI change.
+- **A gameweek in play is scored from live picks.** `history/` lags the live endpoint (it showed
+  0 for every team while the standings showed 1-2), so for a non-final gameweek the score is
+  `sum(points x multiplier)` and the season total is adjusted by the difference - which is what
+  the table is ranked on. Labelled "live, before automatic subs and bonus". **vs xP** stays
+  blank until the gameweek is final: a half-played week is always "behind".
+- Bench players show their own points and projection, dimmed and excluded from the totals.
+
+### UI
+
+`components/LeaguePage.tsx`, own fetch. Gameweek tabs (single choice, unlike the projections
+tick boxes); a standings table (rank + movement, GW, xP, vs xP, chip, transfers and hits, bench
+points, chips used so far as WC/FH/BB/TC with the gameweek subscripted, total); then one card per
+team in table order, lineup grouped GK/DEF/MID/FWD with a position-coloured rule, captain and
+vice armbands, xP and points per player, bench below a dashed rule. The user's own row and card
+carry the same accent treatment as the board. Reuses the `--up`/`--down` deltas from round 8.
+Phones keep rank, team, GW, xP and total in the table; the rest is on the cards.
+
+### Verified
+
+- "Wolves Title Charge" (830675): 7 teams, GW1-5. For finished GW3, each team's summed pick
+  points equal FPL's own gameweek score for all seven (65, 59, 65, 52, 55, 60, 53), including
+  three Triple Captains.
+- Live GW5 totals match the standings endpoint exactly (339, 309, 295, 289, 274, 254, 213).
+- Chips agree with `history/` (e.g. BB1, TC4, WC5 for one entry; FH5 for another).
+- GW5 has projections for all 11 starters of every team; GW1-4 predate the first import
+  (2026-09-12) and correctly show blank with a note.
+- Checked in headless Chromium at 1600px and 420px; `tsc -b`, `oxlint`, `vite build` clean.
+- **Not yet verifiable:** the automatic-substitution reversal - no team in this league has had
+  one yet this season. Re-check the first time an ↑/↓ appears: the ↓ player should sit in the
+  XI with 0 minutes and the ↑ player on the bench with points that count.
+

@@ -169,7 +169,13 @@ def import_projections(conn, season_id: str, csv_path: str, source: str = "fplre
 
     now = datetime.now(timezone.utc).isoformat()
     cur = conn.cursor()
-    cur.execute("DELETE FROM player_projections WHERE season_id = ? AND source = ?", (season_id, source))
+    # Replace only the gameweeks this file covers. Files look forward, so wiping the whole source
+    # would throw away every played gameweek's projection - the only record of what a team was
+    # expected to score that week (the League page compares it with what they did).
+    cur.executemany(
+        "DELETE FROM player_projections WHERE season_id = ? AND source = ? AND round = ?",
+        [(season_id, source, gw) for gw in {r[2] for r in resolved}],
+    )
     cur.executemany(
         """INSERT OR REPLACE INTO player_projections
                (season_id, player_code, round, source, xp, xmins, xg, xa, xcs, xdc, imported_at)

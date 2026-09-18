@@ -16,6 +16,13 @@ Two things make this less trivial than it looks:
    from the *previous* season (see scripts/create_placeholder_season.py) and are therefore wrong.
    The live bootstrap carries both `id` and the stable `code` for the current season, so it is the
    only trustworthy mapping here.
+
+3. **Purchase prices are reconstructed, not read.** What you paid for each player decides what
+   you can sell them for (you keep only half of any rise - see app/prices.py), but the API only
+   serves it to a logged-in session. The public `/api/entry/{entry}/transfers/` does list every
+   transfer with the price paid, so a pick's purchase price is its most recent transfer *in*;
+   a pick with no such transfer has been held since the entry's first gameweek and cost its
+   price then. Free Hit transfers are skipped - that squad reverts, original prices and all.
 """
 
 import json
@@ -73,14 +80,58 @@ def fetch_entry(entry_id: int) -> dict:
         raise
 
 
-def fetch_picks(entry_id: int, event: int) -> list[dict] | None:
-    """This gameweek's 15 picks, or None if they aren't public yet."""
+def fetch_picks(entry_id: int, event: int) -> dict | None:
+    """This gameweek's picks payload (`picks`, plus `entry_history` with the bank), or None if
+    it isn't public yet."""
     try:
-        return _get_json(f"{API_BASE}/entry/{entry_id}/event/{event}/picks/")["picks"]
+        return _get_json(f"{API_BASE}/entry/{entry_id}/event/{event}/picks/")
     except HTTPError as e:
         if e.code in (403, 404):
             return None
         raise
+
+
+def purchase_prices(conn, season_id: str, entry_id: int, entry: dict, picks: list[dict],
+                    bootstrap: dict) -> dict[int, tuple[int | None, int]]:
+    """element id -> (purchase price * 10, estimated flag) for the current picks."""
+    transfers = _get_json(f"{API_BASE}/entry/{entry_id}/transfers/")
+    chips = _get_json(f"{API_BASE}/entry/{entry_id}/history/").get("chips", [])
+    free_hit_events = {c["event"] for c in chips if c.get("name") == "freehit"}
+
+    bought = {}
+    for t in sorted(transfers, key=lambda t: t["time"]):
+        if t["event"] not in free_hit_events:
+            bought[t["element_in"]] = int(t["element_in_cost"])
+
+    by_element = {e["id"]: e for e in bootstrap["elements"]}
+    first_event = min(e["id"] for e in bootstrap["events"])
+    started = entry.get("started_event") or first_event
+    # Prices don't move before the season's first deadline, so an entry that played it paid the
+    # start price exactly. A late joiner paid that gameweek's price, which the per-gameweek
+    # stats record closely but not to the day - hence flagged as an estimate.
+    late_prices = {}
+    if started > first_event:
+        late_prices = dict(
+            conn.execute(
+                "SELECT player_code, MAX(price) FROM player_gw_stats "
+                "WHERE season_id = ? AND round = ? GROUP BY player_code",
+                (season_id, started),
+            ).fetchall()
+        )
+
+    out = {}
+    for p in picks:
+        el = by_element.get(p["element"])
+        if p["element"] in bought:
+            out[p["element"]] = (bought[p["element"]], 0)
+        elif el is None:
+            out[p["element"]] = (None, 0)
+        elif started == first_event:
+            out[p["element"]] = (int(el["now_cost"]) - int(el.get("cost_change_start") or 0), 0)
+        else:
+            guess = late_prices.get(el["code"]) or int(el["now_cost"]) - int(el.get("cost_change_start") or 0)
+            out[p["element"]] = (int(guess), 1)
+    return out
 
 
 def sync_my_team(conn, season_id: str, entry_id: int) -> dict:
@@ -110,6 +161,10 @@ def sync_my_team(conn, season_id: str, entry_id: int) -> dict:
                synced_at = excluded.synced_at""",
         (season_id, entry_id, entry_name, manager_name, datetime.now(timezone.utc).isoformat()),
     )
+    cur.execute(
+        "UPDATE manager_entry SET started_event = ? WHERE season_id = ?",
+        (entry.get("started_event"), season_id),
+    )
 
     base = {
         "season_id": season_id,
@@ -119,7 +174,8 @@ def sync_my_team(conn, season_id: str, entry_id: int) -> dict:
     }
 
     event = latest_available_event(bootstrap)
-    picks = fetch_picks(entry_id, event) if event else None
+    payload = fetch_picks(entry_id, event) if event else None
+    picks = payload["picks"] if payload else None
     if picks is None:
         # Keep whatever squad is already stored - a failed re-sync shouldn't wipe a good one.
         conn.commit()
@@ -146,6 +202,12 @@ def sync_my_team(conn, season_id: str, entry_id: int) -> dict:
         )
     }
 
+    # A nicety on top of the squad itself - never let it fail the sync.
+    try:
+        paid = purchase_prices(conn, season_id, entry_id, entry, picks, bootstrap)
+    except Exception:
+        paid = {}
+
     rows, unmatched = [], []
     for p in picks:
         code = code_by_element.get(p["element"])
@@ -154,18 +216,20 @@ def sync_my_team(conn, season_id: str, entry_id: int) -> dict:
             continue
         rows.append(
             (season_id, code, p["position"], int(p["is_captain"]), int(p["is_vice_captain"]),
-             p.get("multiplier"))
+             p.get("multiplier"), *paid.get(p["element"], (None, 0)))
         )
 
     cur.execute("DELETE FROM manager_squad WHERE season_id = ?", (season_id,))
     cur.executemany(
         """INSERT INTO manager_squad
-               (season_id, player_code, squad_slot, is_captain, is_vice_captain, multiplier)
-           VALUES (?, ?, ?, ?, ?, ?)""",
+               (season_id, player_code, squad_slot, is_captain, is_vice_captain, multiplier,
+                purchase_price, purchase_estimated)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
         rows,
     )
     cur.execute(
-        "UPDATE manager_entry SET synced_event = ? WHERE season_id = ?", (event, season_id)
+        "UPDATE manager_entry SET synced_event = ?, bank = ? WHERE season_id = ?",
+        (event, (payload.get("entry_history") or {}).get("bank"), season_id),
     )
     conn.commit()
 

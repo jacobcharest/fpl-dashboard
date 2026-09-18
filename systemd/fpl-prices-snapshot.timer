@@ -1,0 +1,16 @@
+[Unit]
+Description=FPL dashboard: nightly + evening price snapshot
+
+[Timer]
+# FPL reprices players at ~01:30 UK. Two readings bracket it: 02:30 UK records the new prices,
+# 23:30 UK records the day's final transfer counts - the numbers that night's change is decided
+# on. Both land on the right "price day" (see app/prices.py). Pinned to Europe/London so the
+# pair follows UK daylight saving rather than this machine's.
+OnCalendar=*-*-* 02:30:00 Europe/London
+OnCalendar=*-*-* 23:30:00 Europe/London
+# A laptop that was asleep runs the missed capture on wake; a late reading beats a missing day.
+Persistent=true
+RandomizedDelaySec=120
+
+[Install]
+WantedBy=timers.target

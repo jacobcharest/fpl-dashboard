@@ -1,0 +1,140 @@
+.prices-header {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin-bottom: 14px;
+}
+
+.prices-header h2 {
+  font-size: 16px;
+  font-weight: 700;
+  margin: 0;
+  color: var(--text);
+}
+
+.prices-meta {
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
+/* Squad value summary. The number is the point; the label is a caption under it. */
+.value-tiles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.value-tile {
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 2px;
+  min-width: 132px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.value-tile-number {
+  font-size: 20px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+.value-tile-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-faint);
+}
+
+.prices-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-bottom: 12px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.prices-controls .global-range {
+  margin: 0;
+}
+
+.prices-search {
+  width: 220px;
+  background: var(--surface-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+}
+
+.prices-search:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.prices-note {
+  padding: 10px 14px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-md);
+  color: var(--text-dim);
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+
+.prices-note-warning {
+  border-style: solid;
+  border-color: var(--warning-border);
+  background: var(--warning-bg);
+  color: var(--warning);
+}
+
+/* Signed values. Tabular figures keep the +/− columns aligned down the table. */
+.delta-up,
+.delta-down,
+.delta-flat,
+.delta-none {
+  font-variant-numeric: tabular-nums;
+}
+
+.delta-up {
+  color: var(--up);
+}
+
+.delta-down {
+  color: var(--down);
+}
+
+.delta-flat,
+.delta-none {
+  color: var(--text-faint);
+}
+
+/* Availability flag beside a name: amber for a doubt, red for anything that rules them out. */
+.status-flag {
+  display: inline-block;
+  margin-left: 6px;
+  width: 15px;
+  height: 15px;
+  line-height: 15px;
+  border-radius: 50%;
+  text-align: center;
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--bg);
+  background: var(--down);
+  cursor: help;
+}
+
+.status-flag.status-d {
+  background: var(--warning);
+}

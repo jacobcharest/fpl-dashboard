@@ -1,0 +1,11 @@
+[Unit]
+Description=FPL dashboard: snapshot player prices and transfer counts
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/fpl-dashboard
+# One request to FPL's bootstrap-static, written to data/fpl.db. Idempotent within a day (a
+# re-run overwrites that day's reading), so a retry or a manual run never double-counts.
+ExecStart=%h/fpl-dashboard/backend/.venv/bin/python backend/scripts/snapshot_prices.py

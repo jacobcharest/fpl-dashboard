@@ -201,3 +201,118 @@ export interface MyTeamSyncResult {
   unmatched: string[]; // squad members with no row on this season's board
   message: string;
 }
+
+// One player on the Prices page. Money is in £m; the `change_*` columns are price movement
+// and the `net_*` columns transfer traffic (in minus out). Anything that needs an earlier
+// snapshot to compare against is null until one exists - see backend/app/prices.py.
+export interface PriceRow {
+  player_code: number;
+  web_name: string;
+  position: string;
+  team_name: string | null;
+  status: string | null; // FPL availability flag: a(vailable) d(oubt) i(njured) s(uspended) u(navailable) n(ot eligible)
+  price: number;
+  change_day: number | null; // vs the previous stored day
+  change_week: number | null; // vs the latest stored day at least 7 days back
+  change_event: number | null; // this gameweek, as FPL reports it
+  change_start: number | null; // since the season began
+  selected_by_percent: number | null;
+  transfers_in_event: number | null;
+  transfers_out_event: number | null;
+  net_event: number | null;
+  net_day: number | null;
+  net_since_change: number | null;
+  // What net_since_change is counted from: an observed price change, FPL's own gameweek
+  // counter, or just the first day tracked (a lower bound).
+  since_basis: "change" | "gameweek" | "tracking";
+  since_day: string | null;
+  pressure: number | null; // net_since_change as a % of the managers who own the player
+  squad_slot: number | null;
+  purchase_price: number | null;
+  purchase_estimated: boolean;
+  selling_price: number | null;
+  profit: number | null; // selling - purchase: the half of the rise you'd actually keep
+}
+
+export interface SquadValue {
+  players: number;
+  bank: number | null;
+  market_value: number;
+  selling_value: number | null; // null until every pick has a purchase price (re-sync)
+  purchase_value: number | null;
+}
+
+export interface PriceTable {
+  season_id: string;
+  price_day: string | null; // null = nothing captured for this season
+  captured_at: string | null;
+  event: number | null;
+  prev_day: string | null;
+  week_day: string | null;
+  first_day: string | null;
+  snapshot_days: number;
+  total_players: number | null;
+  unlisted: number; // in the live API but not ingested yet - "Fetch New Data" picks them up
+  squad: SquadValue | null;
+  rows: PriceRow[];
+  warning: string | null;
+}
+
+export interface LeagueSummary {
+  league_id: number;
+  name: string;
+  rank: number | null;
+  size: number | null;
+}
+
+// One player in a league rival's gameweek squad. `squad_slot` is where the manager put them
+// (automatic substitutions undone); `points` / `xp` already carry the captaincy multiplier.
+export interface LeaguePick {
+  player_code: number;
+  web_name: string;
+  position: string;
+  team_name: string | null;
+  squad_slot: number;
+  multiplier: number;
+  is_captain: number;
+  is_vice_captain: number;
+  auto_sub: "in" | "out" | null;
+  minutes: number | null;
+  points: number | null;
+  counts: boolean; // false = benched, shown but not in the team's score
+  xp: number | null;
+  xp_counts: boolean;
+}
+
+export interface LeagueEntry {
+  entry_id: number;
+  entry_name: string;
+  player_name: string;
+  is_me: boolean;
+  rank: number;
+  prev_rank: number | null;
+  points: number; // before hits, as FPL shows a gameweek score
+  transfers: number;
+  hits: number;
+  points_on_bench: number;
+  total_points: number;
+  overall_rank: number | null;
+  value: number | null;
+  chip: string | null;
+  chips_used: { event: number; chip: string }[];
+  projected: number | null;
+  projected_picks: number;
+  final: boolean;
+  picks: LeaguePick[];
+}
+
+export interface LeagueWeek {
+  league_id: number;
+  name: string | null;
+  synced_at?: string | null;
+  events: number[];
+  event: number | null;
+  final?: boolean;
+  entries: LeagueEntry[];
+  warning: string | null;
+}
