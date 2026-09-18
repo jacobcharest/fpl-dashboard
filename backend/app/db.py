@@ -18,6 +18,8 @@ def get_connection() -> sqlite3.Connection:
 ADDED_COLUMNS = {
     "player_projections": {"xg": "REAL", "xa": "REAL", "xcs": "REAL", "xdc": "REAL"},
     "player_season": {"selected_by_percent": "REAL"},
+    "manager_entry": {"bank": "INTEGER", "started_event": "INTEGER"},
+    "manager_squad": {"purchase_price": "INTEGER", "purchase_estimated": "INTEGER"},
 }
 
 

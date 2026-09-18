@@ -145,6 +145,36 @@
     display: none;
   }
 
+  /* Prices page: the per-gameweek in/out split and the longer-window deltas are detail behind
+     Net GW and Δ Day; the tiles go two-up and the search takes the row. */
+  .data-table [data-col="transfers_in_event"],
+  .data-table [data-col="transfers_out_event"],
+  .data-table [data-col="change_week"],
+  .data-table [data-col="change_start"],
+  .data-table [data-col="net_day"] {
+    display: none;
+  }
+
+  .value-tile {
+    flex: 1 1 40%;
+    min-width: 0;
+  }
+
+  .prices-search {
+    flex: 1 1 100%;
+    width: auto;
+  }
+
+  /* League page: the table keeps rank, team, score, xP and total; the rest is on the cards. */
+  .league-table th:nth-child(n + 5):nth-child(-n + 9),
+  .league-table td:nth-child(n + 5):nth-child(-n + 9) {
+    display: none;
+  }
+
+  .team-cards {
+    grid-template-columns: 1fr;
+  }
+
   /* Projections panel and charts: controls stack above the content. */
   .projections-panel,
   .charts-panel {

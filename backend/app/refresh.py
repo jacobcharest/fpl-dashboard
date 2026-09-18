@@ -32,6 +32,7 @@ from urllib.error import HTTPError
 import pandas as pd
 
 from app.my_team import fetch_bootstrap, live_season_id
+from app.prices import capture_snapshot
 from app.seasons import POSITION_BY_ELEMENT_TYPE, SEASONS, TEAM_SHORT_NAME_BY_NAME
 
 RAW_BASE = "https://raw.githubusercontent.com/vaastav/Fantasy-Premier-League/master/data"
@@ -347,6 +348,8 @@ def backfill_live_season(conn, season_id: str, bootstrap: dict | None = None) ->
     summary = _write_season(
         conn, season_id, team_rows, player_rows, fixture_rows, gw_rows
     )
+    # The bootstrap is already in hand, so a refresh doubles as a price snapshot for free.
+    capture_snapshot(conn, bootstrap)
     summary.update(
         {
             "source": "fpl-api",

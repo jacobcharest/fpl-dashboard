@@ -2,7 +2,9 @@ import { useEffect, useMemo, useState } from "react";
 import { getMyTeam, getPlayerTable, getProjectionSources, getSeasonTeams, getSeasons, getTeamTable, refreshSeason, syncMyTeam } from "./api";
 import { ChartsPanel } from "./components/ChartsPanel";
 import { FilterSidebar } from "./components/FilterSidebar";
+import { LeaguePage } from "./components/LeaguePage";
 import { PlayerTable } from "./components/PlayerTable";
+import { PricesPage } from "./components/PricesPage";
 import { ProjectionsPanel } from "./components/ProjectionsPanel";
 import { TeamTable } from "./components/TeamTable";
 import { gameweekLabel } from "./types";
@@ -13,6 +15,8 @@ const MAX_GW = 38;
 // How many gameweeks ahead the projections window defaults to.
 const PROJECTION_WEEKS = 6;
 
+type ViewMode = "players" | "teams" | "prices" | "league";
+
 function errorMessage(err: any): string {
   return err?.response?.data?.detail ?? err?.message ?? "Unknown error";
 }
@@ -20,7 +24,7 @@ function errorMessage(err: any): string {
 function App() {
   const [seasons, setSeasons] = useState<Season[]>([]);
   const [seasonId, setSeasonId] = useState<string>("");
-  const [viewMode, setViewMode] = useState<"players" | "teams">("players");
+  const [viewMode, setViewMode] = useState<ViewMode>("players");
   const [teamFilters, setTeamFilters] = useState<TeamFilterState[]>([]);
   const [playerRows, setPlayerRows] = useState<PlayerRow[]>([]);
   const [teamRows, setTeamRows] = useState<TeamRow[]>([]);
@@ -124,7 +128,8 @@ function App() {
   }, [teamFilters]);
 
   useEffect(() => {
-    if (!seasonId || teamFilters.length === 0) return;
+    // The Prices and League pages fetch for themselves - none of the stats filters apply.
+    if (!seasonId || teamFilters.length === 0 || viewMode === "prices" || viewMode === "league") return;
 
     setLoading(true);
     setFetchError(null);
@@ -223,9 +228,11 @@ function App() {
         </label>
         <label>
           View
-          <select value={viewMode} onChange={(e) => setViewMode(e.target.value as "players" | "teams")}>
+          <select value={viewMode} onChange={(e) => setViewMode(e.target.value as ViewMode)}>
             <option value="players">Players</option>
             <option value="teams">Teams</option>
+            <option value="prices">Prices</option>
+            <option value="league">League</option>
           </select>
         </label>
         <button className="refresh-btn" onClick={handleRefresh} disabled={refreshing || !seasonId}>
@@ -263,62 +270,70 @@ function App() {
         </div>
       )}
 
-      <div className="main-layout">
-        <FilterSidebar
-          teams={teamFilters}
-          onChange={setTeamFilters}
-          maxGw={lastPlayedGw}
-          showPlayerToggles={viewMode === "players"}
-          perStart={perStart}
-          onPerStartChange={setPerStart}
-        />
+      {viewMode === "prices" ? (
+        <PricesPage seasonId={seasonId} squad={squad} refreshNonce={refreshNonce} />
+      ) : viewMode === "league" ? (
+        <LeaguePage seasonId={seasonId} hasTeam={myTeam !== null} refreshNonce={refreshNonce} />
+      ) : (
+        <>
+          <div className="main-layout">
+            <FilterSidebar
+              teams={teamFilters}
+              onChange={setTeamFilters}
+              maxGw={lastPlayedGw}
+              showPlayerToggles={viewMode === "players"}
+              perStart={perStart}
+              onPerStartChange={setPerStart}
+            />
 
-        {viewMode === "players" ? (
-          <PlayerTable
-            data={playerRows}
-            sort={playerSort}
-            onSortChange={setPlayerSort}
-            filters={playerFilters}
-            onFiltersChange={setPlayerFilters}
-            positions={positions}
-            onPositionsChange={setPositions}
+            {viewMode === "players" ? (
+              <PlayerTable
+                data={playerRows}
+                sort={playerSort}
+                onSortChange={setPlayerSort}
+                filters={playerFilters}
+                onFiltersChange={setPlayerFilters}
+                positions={positions}
+                onPositionsChange={setPositions}
+                perStart={perStart}
+                squad={squad}
+                projLabel={projection.source ? gameweekLabel(projection.gameweeks) : null}
+              />
+            ) : (
+              <TeamTable
+                data={teamRows}
+                sort={teamSort}
+                onSortChange={setTeamSort}
+                filters={teamNumericFilters}
+                onFiltersChange={setTeamNumericFilters}
+              />
+            )}
+          </div>
+
+          {viewMode === "players" && (
+            <ProjectionsPanel
+              seasonId={seasonId}
+              teamRanges={teamRanges}
+              projSources={projSources}
+              projection={projection}
+              onProjectionChange={setProjection}
+              positions={projPositions}
+              onPositionsChange={setProjPositions}
+              squad={squad}
+              refreshNonce={refreshNonce}
+            />
+          )}
+
+          <ChartsPanel
+            entityType={viewMode === "players" ? "player" : "team"}
+            rows={viewMode === "players" ? playerRows : teamRows}
+            seasonId={seasonId}
+            teamRanges={teamRanges}
+            opponentTeamCodes={opponentTeamCodes}
             perStart={perStart}
-            squad={squad}
-            projLabel={projection.source ? gameweekLabel(projection.gameweeks) : null}
           />
-        ) : (
-          <TeamTable
-            data={teamRows}
-            sort={teamSort}
-            onSortChange={setTeamSort}
-            filters={teamNumericFilters}
-            onFiltersChange={setTeamNumericFilters}
-          />
-        )}
-      </div>
-
-      {viewMode === "players" && (
-        <ProjectionsPanel
-          seasonId={seasonId}
-          teamRanges={teamRanges}
-          projSources={projSources}
-          projection={projection}
-          onProjectionChange={setProjection}
-          positions={projPositions}
-          onPositionsChange={setProjPositions}
-          squad={squad}
-          refreshNonce={refreshNonce}
-        />
+        </>
       )}
-
-      <ChartsPanel
-        entityType={viewMode === "players" ? "player" : "team"}
-        rows={viewMode === "players" ? playerRows : teamRows}
-        seasonId={seasonId}
-        teamRanges={teamRanges}
-        opponentTeamCodes={opponentTeamCodes}
-        perStart={perStart}
-      />
     </div>
   );
 }

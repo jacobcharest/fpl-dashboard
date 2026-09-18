@@ -105,6 +105,47 @@ next six unplayed gameweeks start ticked and **All** / **None** reset the row; a
 weeks are dimmed. When the imported file doesn't cover every ticked week the panel says so and
 totals only the gameweeks it has.
 
+## Prices
+
+Switch **View** to **Prices** for every player's price, how it has moved, and the transfer
+traffic behind it - plus, once you've synced your team, what your squad is really worth.
+
+FPL changes prices once a night on net transfers, and you only keep **half of any rise** (rounded
+down to £0.1m) while wearing all of any fall. So the page shows two numbers for your squad:
+**Team value** (FPL's own figure - market prices plus bank) and **Sale value** (what you could
+actually spend). What you paid for each player is rebuilt from your public transfer history
+whenever you press "Sync My Team" - still no login involved.
+
+**Pressure** is net transfers since a player's price last changed, as a share of the managers
+who own them: sort by it to see who the market is piling into or out of. It's a ranking signal,
+not a prediction - FPL doesn't publish its thresholds.
+
+FPL's API keeps no price history, so the dashboard records its own, one snapshot per day. Opening
+the page or pressing "Fetch New Data" takes one; to avoid missing days when you don't open it,
+install the timer (02:30 and 23:30 UK, either side of the nightly change):
+
+```bash
+ln -s "$PWD"/systemd/fpl-prices-snapshot.{service,timer} ~/.config/systemd/user/
+systemctl --user daemon-reload
+systemctl --user enable --now fpl-prices-snapshot.timer
+```
+
+Or take one by hand: `backend/.venv/bin/python backend/scripts/snapshot_prices.py`. The
+**Δ Day** / **Δ Week** columns fill in once there's an earlier snapshot to compare against.
+
+## League
+
+Switch **View** to **League** to follow your private mini-league. It's read from your synced
+team, so "Sync My Team" is the only setup. Pick a gameweek to see the table as it stood that
+week - rank and movement, gameweek points, projected points, chip played, transfers and hits,
+chips used so far, season total - and below it every team's lineup as they picked it, with each
+player's projected and actual points, captain and vice, and the bench.
+
+A gameweek in play shows live points (before automatic subs and bonus). Projected points come
+from whichever projections file was loaded when that gameweek's lineups were first fetched, and
+are kept from then on - so import your projections **before** the deadline, and gameweeks from
+before your first import stay blank. Importing a new file only replaces the gameweeks it covers.
+
 ## Run
 
 ```bash

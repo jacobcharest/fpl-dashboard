@@ -1,8 +1,11 @@
 import axios from "axios";
 import type {
+  LeagueSummary,
+  LeagueWeek,
   ChartSeriesRequest,
   PlayerRow,
   PlayerTableRequest,
+  PriceTable,
   MyTeam,
   ProjectionSource,
   ProjectionTable,
@@ -66,4 +69,18 @@ export async function getProjectionSources(seasonId: string): Promise<Projection
 
 export async function getProjectionTable(req: PlayerTableRequest): Promise<ProjectionTable> {
   return (await client.post("/api/projections/table", req)).data;
+}
+
+export async function getPriceTable(seasonId: string): Promise<PriceTable> {
+  return (await client.get(`/api/prices/${seasonId}`, { timeout: 30_000 })).data;
+}
+
+export async function getLeagues(seasonId: string): Promise<LeagueSummary[]> {
+  return (await client.get(`/api/leagues/${seasonId}`, { timeout: 30_000 })).data;
+}
+
+// The first load of a league fetches every team's every gameweek, hence the long timeout;
+// after that only the gameweek in progress is re-read.
+export async function getLeagueWeek(seasonId: string, leagueId: number, event: number | null): Promise<LeagueWeek> {
+  return (await client.get(`/api/leagues/${seasonId}/${leagueId}`, { params: event ? { event } : {}, timeout: 120_000 })).data;
 }
