@@ -7,6 +7,12 @@
   box-shadow: var(--shadow-sm);
 }
 
+/* A page whose table is the last thing on it fits the table to the window instead (see
+   useFitToViewport), so the table scrolls and the page doesn't. Falls back to the cap above. */
+.fit-table .data-table-scroll {
+  max-height: var(--fit-height, calc(100vh - 180px));
+}
+
 .data-table {
   border-collapse: separate;
   border-spacing: 0;

@@ -49,10 +49,12 @@ export interface RefreshSummary {
   gw_rows_inserted: number;
   gw_rows_total: number;
   gw_rows_skipped: number;
+  // Live season only: what happened to the FPL Review projections fetch that rides along.
+  projections?: { status: "imported" | "fresh" | "skipped" | "failed"; message: string };
 }
 
 export async function refreshSeason(seasonId: string): Promise<RefreshSummary> {
-  return (await client.post(`/api/refresh/${seasonId}`, null, { timeout: 120_000 })).data;
+  return (await client.post(`/api/refresh/${seasonId}`, null, { timeout: 240_000 })).data;
 }
 
 export async function getMyTeam(seasonId: string): Promise<MyTeam | null> {

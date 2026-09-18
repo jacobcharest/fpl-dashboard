@@ -2,6 +2,7 @@ import { createColumnHelper, type ColumnDef } from "@tanstack/react-table";
 import { useEffect, useMemo, useState } from "react";
 import { getPriceTable } from "../api";
 import type { NumericFilter, PriceRow, PriceTable, SortSpec, SquadPick } from "../types";
+import { useFitToViewport } from "../useFitToViewport";
 import { DataTable } from "./DataTable";
 import { PositionBadge } from "./PositionBadge";
 import { PositionFilter } from "./PositionFilter";
@@ -184,6 +185,7 @@ export function PricesPage({ seasonId, squad, refreshNonce }: Props) {
   const [positions, setPositions] = useState<string[] | null>(null);
   const [search, setSearch] = useState("");
   const [squadOnly, setSquadOnly] = useState(false);
+  const fitRef = useFitToViewport<HTMLDivElement>();
 
   // `squad` is a dependency so a re-sync (new purchase prices) reloads the table.
   useEffect(() => {
@@ -324,21 +326,23 @@ export function PricesPage({ seasonId, squad, refreshNonce }: Props) {
         </div>
       )}
 
-      <DataTable
-        data={rows}
-        columns={columns}
-        sort={sort}
-        onSortChange={setSort}
-        getRowId={(row) => row.player_code}
-        filterableColumnIds={FILTERABLE_COLUMNS}
-        filters={filters}
-        onFiltersChange={setFilters}
-        customFilterColumns={{ position: <PositionFilter selected={positions} onChange={setPositions} /> }}
-        getRowClassName={(row) => {
-          if (row.squad_slot == null) return undefined;
-          return row.squad_slot > 11 ? "my-team my-team-bench" : "my-team";
-        }}
-      />
+      <div className="fit-table" ref={fitRef}>
+        <DataTable
+          data={rows}
+          columns={columns}
+          sort={sort}
+          onSortChange={setSort}
+          getRowId={(row) => row.player_code}
+          filterableColumnIds={FILTERABLE_COLUMNS}
+          filters={filters}
+          onFiltersChange={setFilters}
+          customFilterColumns={{ position: <PositionFilter selected={positions} onChange={setPositions} /> }}
+          getRowClassName={(row) => {
+            if (row.squad_slot == null) return undefined;
+            return row.squad_slot > 11 ? "my-team my-team-bench" : "my-team";
+          }}
+        />
+      </div>
     </section>
   );
 }

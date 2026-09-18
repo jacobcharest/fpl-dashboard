@@ -24,6 +24,7 @@ fallback reconstruction (see resolve_teams / resolve_fixtures below):
 """
 
 import json
+import time
 import urllib.request
 from collections import Counter, defaultdict
 from concurrent.futures import ThreadPoolExecutor
@@ -284,20 +285,39 @@ def backfill_live_season(conn, season_id: str, bootstrap: dict | None = None) ->
             }
         )
 
-    def fetch_history(element_id: int) -> list[dict]:
+    def fetch_history(element_id: int) -> list[dict] | None:
+        """A player's per-round history; [] if FPL has none for them, None if the request
+        failed - the two must not be confused, since gameweek rows are delete-and-replace and
+        a failure read as "no history" would silently erase that player's season."""
         for attempt in (1, 2):
             try:
                 return fetch_live_json(f"element-summary/{element_id}/")["history"]
             except HTTPError as e:
-                if e.code == 404 or attempt == 2:
+                if e.code == 404:
                     return []
             except OSError:
-                if attempt == 2:
-                    return []
-        return []
+                pass
+        return None
 
+    ids = [r["id"] for r in player_rows]
     with ThreadPoolExecutor(max_workers=LIVE_FETCH_WORKERS) as pool:
-        histories = list(pool.map(fetch_history, [r["id"] for r in player_rows]))
+        histories = list(pool.map(fetch_history, ids))
+    # FPL rate-limits bursts (two refreshes back to back is enough). Go back for the failures
+    # one at a time, slowly; if any still won't come, stop before anything is written.
+    for pause in (2, 5):
+        failed = [i for i, h in enumerate(histories) if h is None]
+        if not failed:
+            break
+        time.sleep(pause)
+        for i in failed:
+            histories[i] = fetch_history(ids[i])
+            time.sleep(0.1)
+    failed = sum(1 for h in histories if h is None)
+    if failed:
+        raise RuntimeError(
+            f"the FPL API refused {failed} of {len(ids)} player histories (it rate-limits bursts). "
+            f"Nothing was changed - try again in a minute"
+        )
 
     gw_rows = []
     skipped = 0

@@ -1,0 +1,15 @@
+[Unit]
+Description=FPL dashboard: check whether a pre-deadline projections capture is due
+
+[Timer]
+# Deadlines move around (Friday night, Saturday lunchtime, midweek), so this can't be a fixed
+# weekly time. Instead it ticks every half hour and the script decides: it only fetches ~24h
+# and ~2h before the next deadline, read from FPL's own fixture calendar. FPL Review drops a
+# gameweek at its deadline, so after that the projections can't be had at all.
+OnCalendar=*:0/30
+# Asleep at a checkpoint? Run on wake; the script still sees the capture as due.
+Persistent=true
+RandomizedDelaySec=60
+
+[Install]
+WantedBy=timers.target
