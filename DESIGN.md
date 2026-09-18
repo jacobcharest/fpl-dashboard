@@ -744,3 +744,43 @@ Phones keep rank, team, GW, xP and total in the table; the rest is on the cards.
   "already updated". Page checks in headless Chromium: sorted-header markers on all three
   tables; Projections and Prices pages have `scrollHeight == innerHeight` at 1600x1000.
 
+
+## Round 12: xPts - expected points from games already played
+
+A backward-looking `expected_points` stat ("xPts") on the player board and in the chart builder:
+what the xG / xA / xGA a player *already posted* was worth in FPL points. It is not a forecast -
+that stays `player_projections.xp` ("xP", imported from FPL Review). Computed per (player,
+fixture) in `load_season_frames`, so it obeys every table filter, Per Start, and works as a
+per-gameweek chart series like any other stat.
+
+- **Swap, don't rebuild.** The chart-builder note above still holds: a full points
+  decomposition isn't worth hardcoding (rules vary by position and season, and penalty misses,
+  own goals and penalty saves aren't even stored). So xPts starts from the real `total_points`
+  and replaces only the four outcomes that have an expected counterpart:
+  `xPts = Pts - pts(goals, assists, CS, goals conceded) + E[pts | xG, xA, xGC]`. Appearance,
+  bonus, saves, defensive contribution and cards stay at their actual values, so `Pts - xPts` is
+  exactly the finishing / clean-sheet luck. Only the long-stable rules are needed: goal
+  10/6/5/4, assist 3, clean sheet 4/4/1/0, -1 per 2 conceded for GK/DEF. Known limit: bonus is
+  left at actual even though it follows goals, so xPts slightly understates the luck.
+- **Clean sheets are calibrated, not plain Poisson.** `exp(-xGC)` predicted a 35% clean-sheet
+  rate for 60+ minute appearances in 2025/26 against 29% actual (a single match's xGC is a noisy
+  estimate and `exp(-x)` is convex; own goals aren't in xGC). That short-changed every defender
+  ~0.25 pts a game (-726 pts across DEFs in 2025/26). Fitted `P(CS) = exp(-(0.09 + 1.16 xGC))`
+  by maximum likelihood on 2023/24-2025/26; per-season predicted vs actual: .252/.242,
+  .274/.266, .279/.288. The goals-conceded penalty uses `E[floor(N/2)]`, N ~ Poisson(xGC), which
+  needed no correction (0.465 predicted vs 0.450 actual).
+- **xA is scaled by 1.39.** FPL's fantasy assists (penalties won, rebounds, forced own goals)
+  run a steady 1.42 / 1.37 / 1.38 x xA league-wide over the same three seasons; unscaled, every
+  creator reads as a permanent over-performer (+417 pts across MIDs in 2025/26).
+- **Missing data is null, not 0.** No xG before 2022/23; 2022/23 itself is zero-filled (not
+  NULL) for GW1-15, detected as "the whole round has no xG"; 2024/25 assistant managers have no
+  scoring position. All-null sums stay null. In 2022/23 Pts covers the full season but xPts only
+  GW16+, same as the xG column always has - narrow the gameweek range to compare them.
+
+### Verified
+
+League-wide Pts vs xPts: 31,271 / 31,543 (2023/24), 34,382 / 34,485 (2025/26); worst
+per-position residual in 2025/26 is 111 pts across all defenders. 2021/22: all 737 players null.
+2022/23 Haaland series: GW15 null, GW16 onward populated. Sorting and numeric filtering on
+`expected_points` work, including with Per Start. `tsc -b` and `oxlint` clean (one pre-existing
+warning).

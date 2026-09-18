@@ -11,6 +11,7 @@ export interface StatDef {
 // bar/radar/distribution, which read off the already-fetched table rows).
 export const PLAYER_STATS: StatDef[] = [
   { key: "total_points", label: "Points", seriesEligible: true },
+  { key: "expected_points", label: "xPts (expected points)", seriesEligible: true },
   { key: "goals_scored", label: "Goals", seriesEligible: true },
   { key: "expected_goals", label: "xG", seriesEligible: true },
   { key: "assists", label: "Assists", seriesEligible: true },
