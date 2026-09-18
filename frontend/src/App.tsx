@@ -15,7 +15,7 @@ const MAX_GW = 38;
 // How many gameweeks ahead the projections window defaults to.
 const PROJECTION_WEEKS = 6;
 
-type ViewMode = "players" | "teams" | "prices" | "league";
+type ViewMode = "players" | "teams" | "projections" | "prices" | "league";
 
 function errorMessage(err: any): string {
   return err?.response?.data?.detail ?? err?.message ?? "Unknown error";
@@ -122,14 +122,19 @@ function App() {
       teamFilters.filter((t) => t.included).map((t) => ({ team_code: t.team_code, start_gw: t.start_gw, end_gw: t.end_gw })),
     [teamFilters]
   );
+  // The Projections page has no team sidebar, so it isn't narrowed by one it can't show.
+  const allTeamRanges = useMemo(
+    () => teamFilters.map((t) => ({ team_code: t.team_code, start_gw: t.start_gw, end_gw: t.end_gw })),
+    [teamFilters]
+  );
   const opponentTeamCodes = useMemo(() => {
     const allOpponentsIncluded = teamFilters.every((t) => t.opponentIncluded);
     return allOpponentsIncluded ? null : teamFilters.filter((t) => t.opponentIncluded).map((t) => t.team_code);
   }, [teamFilters]);
 
   useEffect(() => {
-    // The Prices and League pages fetch for themselves - none of the stats filters apply.
-    if (!seasonId || teamFilters.length === 0 || viewMode === "prices" || viewMode === "league") return;
+    // Only the two stats tables are fed from here; the other pages fetch for themselves.
+    if (!seasonId || teamFilters.length === 0 || (viewMode !== "players" && viewMode !== "teams")) return;
 
     setLoading(true);
     setFetchError(null);
@@ -231,6 +236,7 @@ function App() {
           <select value={viewMode} onChange={(e) => setViewMode(e.target.value as ViewMode)}>
             <option value="players">Players</option>
             <option value="teams">Teams</option>
+            <option value="projections">Projections</option>
             <option value="prices">Prices</option>
             <option value="league">League</option>
           </select>
@@ -272,6 +278,18 @@ function App() {
 
       {viewMode === "prices" ? (
         <PricesPage seasonId={seasonId} squad={squad} refreshNonce={refreshNonce} />
+      ) : viewMode === "projections" ? (
+        <ProjectionsPanel
+          seasonId={seasonId}
+          teamRanges={allTeamRanges}
+          projSources={projSources}
+          projection={projection}
+          onProjectionChange={setProjection}
+          positions={projPositions}
+          onPositionsChange={setProjPositions}
+          squad={squad}
+          refreshNonce={refreshNonce}
+        />
       ) : viewMode === "league" ? (
         <LeaguePage seasonId={seasonId} hasTeam={myTeam !== null} refreshNonce={refreshNonce} />
       ) : (
@@ -309,20 +327,6 @@ function App() {
               />
             )}
           </div>
-
-          {viewMode === "players" && (
-            <ProjectionsPanel
-              seasonId={seasonId}
-              teamRanges={teamRanges}
-              projSources={projSources}
-              projection={projection}
-              onProjectionChange={setProjection}
-              positions={projPositions}
-              onPositionsChange={setProjPositions}
-              squad={squad}
-              refreshNonce={refreshNonce}
-            />
-          )}
 
           <ChartsPanel
             entityType={viewMode === "players" ? "player" : "team"}

@@ -114,7 +114,19 @@ export function ProjectionsPanel({
     return [...gws].sort((a, b) => a - b);
   }, [source, projection.gameweeks]);
 
-  if (projSources.length === 0) return null;
+  if (projSources.length === 0) {
+    return (
+      <section className="projections-panel">
+        <div className="projections-panel-header">
+          <h2>Projections</h2>
+        </div>
+        <div className="projections-note">
+          No projections loaded for this season. Import a CSV with{" "}
+          <code>backend/scripts/import_projections.py</code> - see the README.
+        </div>
+      </section>
+    );
+  }
 
   const firstGw = table.gameweeks[0];
   const lastGw = table.gameweeks[table.gameweeks.length - 1];
