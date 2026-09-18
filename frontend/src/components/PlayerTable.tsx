@@ -58,7 +58,11 @@ function buildColumns(perStart: boolean, squad: Map<number, SquadPick>, projLabe
     // when no projections are loaded rather than showing a column of dashes.
     ...(projLabel
       ? [
-          helper.accessor("xp", { header: `xP ${projLabel}`, cell: (i) => fmt(1)(i.getValue()) }),
+          helper.accessor("xp", {
+            // The window is picked on the Projections page; the two share it so they never disagree.
+            header: () => <span title="Projected points over these gameweeks - change the weeks on the Projections view">xP {projLabel}</span>,
+            cell: (i) => fmt(1)(i.getValue()),
+          }),
           helper.accessor("xmins", { header: "xMins", cell: (i) => fmt(0)(i.getValue()) }),
         ]
       : []),

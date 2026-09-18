@@ -91,7 +91,7 @@ file from the page - see the instructions at the top of that file.
 Projections are stored per gameweek, so changing the window re-sums them without re-importing.
 With no projections loaded the columns are absent entirely rather than showing empty cells.
 
-A **Projections** panel below the player board totals each player's projections over a
+A **Projections** view (in the **View** dropdown) totals each player's projections over a
 gameweek window - **xP**, **xG** and **xA** summed, **xMins** averaged, and **xCS** / **xDC**
 (per-match clean-sheet and defensive-contribution probabilities) summed so they read as expected
 counts over the window - sortable and filterable like the main tables. Beside the price sit two
@@ -99,7 +99,7 @@ rates for comparing players across window lengths: **xP/GW** (xP over the gamewe
 projected inside the window) and **xP/£/GW** (that rate per £m of current price). Which of these a source
 fills depends on the file: FPL Review's export carries all of them, a points-only file just xP.
 Its controls sit in a bar above it: a **Weeks** row with one tick box per gameweek the source
-covers (which also drives the board's xP column, so the two never disagree; any set works, so you
+covers (which also drives the Players board's xP column, so the two never disagree; any set works, so you
 can skip a blank or a bad fixture) and a **Position** filter independent of the board's own. The
 next six unplayed gameweeks start ticked and **All** / **None** reset the row; already-played
 weeks are dimmed. When the imported file doesn't cover every ticked week the panel says so and

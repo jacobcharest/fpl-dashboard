@@ -176,7 +176,6 @@
   }
 
   /* Projections panel and charts: controls stack above the content. */
-  .projections-panel,
   .charts-panel {
     margin-top: 20px;
     padding-top: 14px;

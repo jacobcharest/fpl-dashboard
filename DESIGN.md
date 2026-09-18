@@ -667,3 +667,22 @@ Phones keep rank, team, GW, xP and total in the table; the rest is on the cards.
   one yet this season. Re-check the first time an ↑/↓ appears: the ↓ player should sit in the
   XI with 0 minutes and the ↑ player on the bench with points that count.
 
+## Round 10: Projections becomes its own view
+
+- The Projections panel sat below the player board, behind a viewport-tall table, with its own
+  table capped at 520px so the charts under it stayed reachable. It is now a **Projections**
+  entry in the View dropdown (`viewMode === "projections"`), rendering the same
+  `ProjectionsPanel` full-height; the below-the-board margin, top rule and height cap are gone.
+- **Team filtering**: the panel used to inherit the stats sidebar's included teams. That sidebar
+  isn't on this page, so it now receives every team - a hidden filter from another view
+  silently narrowing the table would be worse than no team filter. Position and the > < column
+  filters are unchanged.
+- **The gameweek window is still shared with the Players board's xP column** (state stays in
+  `App`, so it survives switching views). The tick boxes now live a view away from that column,
+  so its header carries a tooltip saying where the weeks are chosen.
+- With no projections loaded the panel used to render nothing, which was right for a panel but
+  would be a blank page as a view; it now shows a note pointing at the import script.
+- `App`'s table fetch now runs only for the two stats views rather than listing the views to
+  skip. Verified in headless Chromium: the Projections view lists 655 players for GW5-10 with
+  squad highlighting; the Players view has no projections panel and still has its charts.
+
