@@ -844,3 +844,61 @@ warning).
   season has it, so past seasons get the column after being re-fetched; until then, and for the
   two oldest seasons that have no fixtures file, it shows "-".
 
+## Round 15: adjPts - schedule-adjusted points, and what the backtest says about it
+
+**adjPts** = xPts with the opposition taken out: what a player's underlying numbers would be
+worth against an average side at a neutral venue. A column beside Pts and xPts on the player
+board, and a chart stat (per-gameweek series included).
+
+### How it's built
+
+- **On xPts, not Pts.** Finishing luck is the biggest noise in past points; adjusting raw
+  points for schedule would mostly be adjusting luck.
+- **Team ratings from xG, not FDR** (`app/schedule.py`). FDR is a hand-set 1-5 integer, the
+  same for a centre-back and a striker. Instead: `E[xG of i vs j] = mu * att_i * def_j * hfa^(+/-1)`,
+  fitted jointly by iterative scaling on every completed match's team xG (summed from player
+  rows). Joint fitting is what stops a side that has only met strong attacks being rated a bad
+  defence. Each rating is shrunk toward a prior with the weight of 6 matches: the club's rating
+  last season, else the typical promoted side (0.78 attack, 1.25 defence - from the nine
+  promoted in 2023/24-2025/26), so GW5 ratings aren't noise. Ratings and multipliers clip to
+  [0.5, 2]. Sanity: Arsenal the tightest defence in all four seasons (0.55-0.65), Liverpool /
+  Man City the best attacks, promoted sides at the bottom; home advantage 1.06-1.14.
+- **Adjustment, per match** (`app/adjusted.py`): xG and xA are divided by
+  `def_opponent * venue`, xGC by `att_opponent * venue`, then the *same* points formula as xPts
+  is applied (goal/assist points, calibrated clean-sheet probability, goals-conceded penalty).
+  Appearance, bonus, saves, defensive contribution and cards stay actual, as in xPts. So
+  `adjPts - xPts` is exactly the schedule effect, as `Pts - xPts` is exactly the luck.
+- Ratings use every completed match of the season (not just the filtered rows - the question
+  is how good the opponent *is*); the rows adjusted are the filtered ones, so the column follows
+  gameweek ranges, opponent filter and Per Start. Fits are cached on (season, matches seen).
+  Only completed matches feed the fit: the live season carries all-zero rows for the current
+  round's unplayed fixtures, which had dragged league xG per match from 1.35 to 1.01.
+
+### Backtest (`backend/scripts/backtest_adjusted_points.py`)
+
+2022/23-2025/26, cut-offs GW6-30, everything (ratings included) computed from matches up to the
+cut-off, predicting actual points per 90 over the next 6 gameweeks. Pearson r, 5,282 / 4,366
+player-cutoffs:
+
+| past window | Pts | xPts | adjPts | xPts + fixtures | adjPts + fixtures |
+|---|---|---|---|---|---|
+| all matches so far | 0.397 | 0.464 | 0.465 | 0.483 | 0.483 |
+| last 6 gameweeks | 0.341 | 0.428 | 0.431 | 0.452 | 0.453 |
+
+- **vs actual points: clearly more predictive** (+0.07 to +0.09 r; wins 24 of 24 season-cutoff
+  slices). That requirement is met.
+- **vs xPts: barely.** +0.001 (long) to +0.003 (short) overall; consistently positive for
+  outfield players - FWD +0.008/+0.011, MID +0.003/+0.007, DEF +0.003/+0.006 - and it wins 16-17
+  of 24 slices. Most of the predictive gain over Pts is the xG step, not the schedule step:
+  over six-plus matches schedules largely even out. Damping the adjustment (exponent 0.5-0.7) or
+  changing the prior weight (3-12) moved none of this materially, so it ships undamped.
+- **Goalkeepers are left at xPts.** Adjusting them made the number *worse* under every setting
+  (-0.007 long, -0.018 short): their points are clean sheets *and* saves, which move in opposite
+  directions with opponent strength. (Keeper points are close to unpredictable from any of
+  these - r ~ 0.05.)
+- **The bigger lever is the future schedule, not the past one.** Re-pricing a player's per-90
+  components for his *upcoming* fixtures with the same ratings adds +0.02 r - 5-10x the gain of
+  de-scheduling the past - whether or not the past was adjusted first. Not shipped as a column
+  here (FPL Review's xP already does this job, with team news); recorded because it says where a
+  home-grown forecast would get its value.
+

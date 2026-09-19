@@ -25,6 +25,7 @@ import pandas as pd
 PLAYER_STAT_COLUMNS = [
     "total_points",
     "expected_points",
+    "adjusted_points",
     "goals_scored",
     "expected_goals",
     "assists",
@@ -118,7 +119,11 @@ def load_season_frames(conn, season_id: str):
         conn,
         params=(season_id,),
     )
-    return _with_expected_points(player_gw, players), fixtures, teams, players
+    # Local import: app.adjusted builds on this module's scoring constants.
+    from app.adjusted import with_adjusted_points
+
+    player_gw = _with_expected_points(player_gw, players)
+    return with_adjusted_points(conn, season_id, player_gw, players), fixtures, teams, players
 
 
 def _with_expected_points(player_gw: pd.DataFrame, players: pd.DataFrame) -> pd.DataFrame:
@@ -167,10 +172,13 @@ def _with_expected_points(player_gw: pd.DataFrame, players: pd.DataFrame) -> pd.
     return player_gw.assign(expected_points=expected_points.where(round_xg > 0))
 
 
+NULLABLE_SUMS = {"expected_points", "adjusted_points"}
+
+
 def _stat_aggs(stats: list[str]) -> dict:
     """Named aggregations summing each stat. expected_points keeps NaN when every row is NaN -
     a plain sum would turn "no xG data" into 0, i.e. "expected to score nothing"."""
-    return {s: (s, (lambda v: v.sum(min_count=1)) if s == "expected_points" else "sum") for s in stats}
+    return {s: (s, (lambda v: v.sum(min_count=1)) if s in NULLABLE_SUMS else "sum") for s in stats}
 
 
 def _records(df: pd.DataFrame) -> list[dict]:

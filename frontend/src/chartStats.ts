@@ -12,6 +12,7 @@ export interface StatDef {
 export const PLAYER_STATS: StatDef[] = [
   { key: "total_points", label: "Points", seriesEligible: true },
   { key: "expected_points", label: "xPts (expected points)", seriesEligible: true },
+  { key: "adjusted_points", label: "adjPts (schedule-adjusted xPts)", seriesEligible: true },
   { key: "goals_scored", label: "Goals", seriesEligible: true },
   { key: "expected_goals", label: "xG", seriesEligible: true },
   { key: "assists", label: "Assists", seriesEligible: true },
