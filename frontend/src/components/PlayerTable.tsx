@@ -21,6 +21,11 @@ function buildColumns(perStart: boolean, squad: Map<number, SquadPick>, projLabe
         return (
           <>
             {i.getValue()}
+            {i.row.original.team_short && (
+              <span className="player-team" title={i.row.original.team_name}>
+                {i.row.original.team_short}
+              </span>
+            )}
             {armband && <span className={`armband armband-${armband.toLowerCase()}`}>{armband}</span>}
           </>
         );

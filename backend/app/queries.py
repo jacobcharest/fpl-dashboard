@@ -318,7 +318,10 @@ def query_players(conn, filters: TableFilters, per_start: bool) -> list[dict]:
 
     agg["price"] = agg["price"] / 10.0
     agg = agg.merge(players, on="player_code", how="left")
-    agg = agg.merge(teams[["team_code", "name"]].rename(columns={"name": "team_name"}), on="team_code", how="left")
+    agg = agg.merge(
+        teams[["team_code", "name", "short_name"]].rename(columns={"name": "team_name", "short_name": "team_short"}),
+        on="team_code", how="left",
+    )
 
     if filters.positions is not None:
         agg = agg[agg["position"].isin(filters.positions)]
@@ -327,7 +330,7 @@ def query_players(conn, filters: TableFilters, per_start: bool) -> list[dict]:
     agg = _apply_sort(agg, filters.sort, default_column="total_points")
 
     columns = (
-        ["player_code", "web_name", "team_name", "position", "price", "selected_by_percent", "sos", "minutes"]
+        ["player_code", "web_name", "team_name", "team_short", "position", "price", "selected_by_percent", "sos", "minutes"]
         + PLAYER_STAT_COLUMNS
         + ["defensive_contribution_hit_rate"]
     )

@@ -59,6 +59,7 @@ export interface PlayerRow {
   player_code: number;
   web_name: string;
   team_name: string;
+  team_short: string | null; // three-letter club code, shown beside the name
   position: string;
   price: number;
   selected_by_percent: number | null;
