@@ -122,6 +122,12 @@ counts over the window - sortable and filterable like the main tables. Beside th
 rates for comparing players across window lengths: **xP/GW** (xP over the gameweeks the source
 projected inside the window) and **xP/£/GW** (that rate per £m of current price). Which of these a source
 fills depends on the file: FPL Review's export carries all of them, a points-only file just xP.
+The Players table's **adjPts** goes one step past xPts: the same expected points, re-valued as
+if every match had been against an average side (team attack/defence ratings fitted from the
+season's xG). Above xPts means a hard run so far, below a kind one. Backtested over four seasons
+it predicts the next six gameweeks much better than actual points and marginally better than
+xPts - `backend/scripts/backtest_adjusted_points.py` reproduces the numbers.
+
 (The Players table has an **SoS** column too, looking backwards: the average difficulty of the
 matches a player's stats came from, following whatever gameweek ranges and filters are set.)
 **SoS** is the strength of schedule over the ticked weeks - the average of FPL's fixture

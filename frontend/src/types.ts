@@ -67,6 +67,7 @@ export interface PlayerRow {
   minutes: number;
   total_points: number;
   expected_points: number | null; // backward-looking; null where the season/round has no xG data
+  adjusted_points: number | null; // xPts with the opposition taken out; null wherever xPts is
   goals_scored: number;
   expected_goals: number;
   assists: number;

@@ -54,6 +54,15 @@ function buildColumns(perStart: boolean, squad: Map<number, SquadPick>, projLabe
       ),
       cell: (i) => fmt(1)(i.getValue()),
     }),
+    // xPts against an average schedule: above xPts means the numbers came the hard way.
+    helper.accessor("adjusted_points", {
+      header: () => (
+        <span title="Schedule-adjusted points: xPts with the opposition taken out. Each match's xG and xA are scaled by how tight that opponent's defence is, and the clean-sheet maths by how dangerous their attack is (team ratings fitted from this season's xG, home advantage included), so it reads as what these performances are worth against an average side. Above xPts = a hard schedule so far; below = a kind one. Goalkeepers are left at xPts.">
+          adjPts
+        </span>
+      ),
+      cell: (i) => fmt(1)(i.getValue()),
+    }),
     helper.accessor("minutes", { header: "Mins", cell: (i) => fmt(0)(i.getValue()) }),
     helper.accessor("goals_scored", { header: "Goals", cell: (i) => fmt(2)(i.getValue()) }),
     helper.accessor("expected_goals", { header: "xG", cell: (i) => fmt(2)(i.getValue()) }),
@@ -97,6 +106,7 @@ const FILTERABLE_COLUMNS = [
   "sos",
   "total_points",
   "expected_points",
+  "adjusted_points",
   "minutes",
   "goals_scored",
   "expected_goals",
