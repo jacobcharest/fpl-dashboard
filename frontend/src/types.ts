@@ -147,6 +147,12 @@ export interface ProjectionRow {
   xa: number | null;
   xcs: number | null; // expected clean sheets over the range (sum of per-match probabilities)
   xdc: number | null; // expected defensive-contribution hits over the range
+  // Schedule over the ticked gameweeks, shared by everyone at the club: the mean of FPL's
+  // fixture difficulty ratings (1 easy - 5 hard), how many fixtures that covers (doubles add,
+  // blanks don't), and the fixtures spelled out for the tooltip.
+  sos: number | null;
+  fixture_count: number | null;
+  fixtures: string | null;
 }
 
 export interface ProjectionTable {
@@ -228,6 +234,9 @@ export interface PriceRow {
   since_basis: "change" | "gameweek" | "tracking";
   since_day: string | null;
   pressure: number | null; // net_since_change as a % of the managers who own the player
+  // FPL Review's estimate of progress to the next change: -100 (about to fall) .. +100 (about
+  // to rise). Theirs, not ours - refreshed whenever projections are fetched (see progress_day).
+  fplreview_progress: number | null;
   squad_slot: number | null;
   purchase_price: number | null;
   purchase_estimated: boolean;
@@ -253,6 +262,7 @@ export interface PriceTable {
   first_day: string | null;
   snapshot_days: number;
   total_players: number | null;
+  progress_day: string | null; // price day of the newest FPL Review progress reading
   unlisted: number; // in the live API but not ingested yet - "Fetch New Data" picks them up
   squad: SquadValue | null;
   rows: PriceRow[];

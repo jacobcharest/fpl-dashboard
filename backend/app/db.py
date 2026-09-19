@@ -20,6 +20,8 @@ ADDED_COLUMNS = {
     "player_season": {"selected_by_percent": "REAL"},
     "manager_entry": {"bank": "INTEGER", "started_event": "INTEGER"},
     "manager_squad": {"purchase_price": "INTEGER", "purchase_estimated": "INTEGER"},
+    "player_price_snapshots": {"fplreview_progress": "REAL"},
+    "fixtures": {"team_h_difficulty": "INTEGER", "team_a_difficulty": "INTEGER"},
 }
 
 
