@@ -18,6 +18,9 @@
 //   N_xMins  expected minutes               N_xA   expected assists
 //   N_xCS    clean sheet probability        N_xDC  probability of defensive-contribution points
 //   N_opp    opponent(s) with (H)/(A)
+// Plus one per-player column, `price_progress`: FPL Review's estimate of how far the player is
+// towards their next price change, -1000 (about to fall) to +1000 (about to rise). The Prices
+// page shows it as a percentage.
 // The importer stores all but opp (which is for reading the file by eye). `code` is FPL's
 // stable player id, so the import matches on it and never has to guess by name.
 (() => {
@@ -39,12 +42,12 @@
   const sum = (fx, k) => fx.reduce((s, x) => s + (x?.[k] || 0), 0);
 
   const perGw = ["Pts", "xMins", "xG", "xA", "xCS", "xDC", "opp"];
-  const header = ["code", "name", "team", "pos", "price", "ownership",
+  const header = ["code", "name", "team", "pos", "price", "ownership", "price_progress",
     ...gws.flatMap((g) => perGw.map((s) => `${g}_${s}`))];
   const lines = [header.join(",")];
   for (const p of all) {
     const row = [p.code, esc(p.web_name), p.team_short, POS[p.element_type],
-      (p.now_cost / 10).toFixed(1), p.selected_by_percent];
+      (p.now_cost / 10).toFixed(1), p.selected_by_percent, p.price_progress ?? ""];
     for (const g of gws) {
       const fx = p.fixtures?.[g] || [];
       const opp = fx.map((x) => `${x.opponent}(${x.isHome ? "H" : "A"})`).join("+");

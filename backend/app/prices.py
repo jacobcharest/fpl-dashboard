@@ -90,16 +90,42 @@ def capture_snapshot(conn, bootstrap: dict | None = None, now: datetime | None =
                total_players = excluded.total_players""",
         (season_id, day, now.isoformat(), event, bootstrap.get("total_players")),
     )
+    # An upsert, not INSERT OR REPLACE: a same-day recapture must not wipe the FPL Review
+    # progress reading stored on the row separately (see store_fplreview_progress).
     cur.executemany(
-        """INSERT OR REPLACE INTO player_price_snapshots
+        """INSERT INTO player_price_snapshots
                (season_id, player_code, price_day, now_cost, cost_change_event, cost_change_start,
                 transfers_in, transfers_out, transfers_in_event, transfers_out_event,
                 selected_by_percent, status)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT(season_id, player_code, price_day) DO UPDATE SET
+               now_cost = excluded.now_cost, cost_change_event = excluded.cost_change_event,
+               cost_change_start = excluded.cost_change_start, transfers_in = excluded.transfers_in,
+               transfers_out = excluded.transfers_out, transfers_in_event = excluded.transfers_in_event,
+               transfers_out_event = excluded.transfers_out_event,
+               selected_by_percent = excluded.selected_by_percent, status = excluded.status""",
         rows,
     )
     conn.commit()
     return {"season_id": season_id, "price_day": day, "captured_at": now.isoformat(), "players": len(rows)}
+
+
+def store_fplreview_progress(conn, season_id: str, progress: dict[int, float]) -> int:
+    """Records FPL Review's price-progress readings (player_code -> percent) on today's
+    snapshot rows, taking a snapshot first if today has none. Kept per day alongside the
+    transfer counts so their estimate can later be scored against what prices actually did."""
+    day = price_day()
+    have = conn.execute(
+        "SELECT 1 FROM price_snapshot_days WHERE season_id = ? AND price_day = ?", (season_id, day)
+    ).fetchone()
+    if not have:
+        capture_snapshot(conn)
+    cur = conn.executemany(
+        "UPDATE player_price_snapshots SET fplreview_progress = ? WHERE season_id = ? AND player_code = ? AND price_day = ?",
+        [(pct, season_id, code, day) for code, pct in progress.items()],
+    )
+    conn.commit()
+    return cur.rowcount
 
 
 def capture_if_stale(conn, season_id: str, now: datetime | None = None) -> str | None:
@@ -147,6 +173,7 @@ def query_prices(conn, season_id: str) -> dict:
         "snapshot_days": len(days),
         "total_players": None,
         "unlisted": 0,
+        "progress_day": None,
         "squad": None,
         "rows": [],
     }
@@ -200,6 +227,21 @@ def query_prices(conn, season_id: str) -> dict:
                    SELECT player_code, MIN(price_day) AS day FROM player_price_snapshots
                    WHERE season_id = ? GROUP BY player_code
                ) f ON f.player_code = s.player_code AND f.day = s.price_day
+               WHERE s.season_id = ?""",
+            (season_id, season_id),
+        )
+    }
+
+    # FPL Review's reading is only refreshed when projections are fetched, so take each
+    # player's most recent one and say which day it's from.
+    progress = {
+        r["player_code"]: r
+        for r in conn.execute(
+            """SELECT s.player_code, s.fplreview_progress, s.price_day FROM player_price_snapshots s
+               JOIN (
+                   SELECT player_code, MAX(price_day) AS day FROM player_price_snapshots
+                   WHERE season_id = ? AND fplreview_progress IS NOT NULL GROUP BY player_code
+               ) l ON l.player_code = s.player_code AND l.day = s.price_day
                WHERE s.season_id = ?""",
             (season_id, season_id),
         )
@@ -281,6 +323,7 @@ def query_prices(conn, season_id: str) -> dict:
                 "since_basis": basis,
                 "since_day": base["price_day"] if base is not None else None,
                 "pressure": pressure,
+                "fplreview_progress": progress[code]["fplreview_progress"] if code in progress else None,
                 "squad_slot": m["squad_slot"],
                 "purchase_price": purchase / 10.0 if purchase is not None else None,
                 "purchase_estimated": bool(m["purchase_estimated"]),
@@ -314,6 +357,7 @@ def query_prices(conn, season_id: str) -> dict:
             "first_day": day_names[0],
             "total_players": total_players,
             "unlisted": sum(1 for code in current if code not in meta),
+            "progress_day": max((r["price_day"] for r in progress.values()), default=None),
             "squad": squad,
             "rows": rows,
         }

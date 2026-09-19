@@ -22,7 +22,7 @@ const helper = createColumnHelper<ProjectionRow>();
 
 const fmt = (digits: number) => (v: number | null) => (v == null ? "-" : v.toFixed(digits));
 
-const FILTERABLE_COLUMNS = ["price", "xp_per_gw", "xp_per_gw_per_m", "xp_total", "xmins_avg", "xg", "xa", "xcs", "xdc"];
+const FILTERABLE_COLUMNS = ["price", "sos", "xp_per_gw", "xp_per_gw_per_m", "xp_total", "xmins_avg", "xg", "xa", "xcs", "xdc"];
 
 interface Props {
   seasonId: string;
@@ -56,6 +56,24 @@ function buildColumns(range: string, squad: Map<number, SquadPick>): ColumnDef<P
     helper.accessor("position", { header: "Pos", cell: (i) => <PositionBadge position={i.getValue()} /> }),
     helper.accessor("team_name", { header: "Team", cell: (i) => i.getValue() }),
     helper.accessor("price", { header: "Price", cell: (i) => (i.getValue() == null ? "-" : `£${i.getValue()!.toFixed(1)}`) }),
+    helper.accessor("sos", {
+      header: () => (
+        <span title="Strength of schedule: the average of FPL's fixture difficulty ratings (1 easy - 5 hard) over the ticked gameweeks. Lower is kinder. Hover a value for the fixtures. It's per club, and one rating per fixture - the same for a defender and a forward.">
+          SoS
+        </span>
+      ),
+      cell: (i) => {
+        const v = i.getValue() as number | null;
+        if (v == null) return "-";
+        const row = i.row.original;
+        const tone = v <= 2.6 ? "sos-easy" : v >= 3.4 ? "sos-hard" : "";
+        return (
+          <span className={`sos ${tone}`} title={`${row.fixtures ?? ""}${row.fixture_count != null ? ` · ${row.fixture_count} fixtures` : ""}`}>
+            {v.toFixed(2)}
+          </span>
+        );
+      },
+    }),
     // Rates rather than totals, so players are comparable whatever the Weeks range is.
     helper.accessor("xp_per_gw", { header: "xP/GW", cell: (i) => fmt(2)(i.getValue()) }),
     helper.accessor("xp_per_gw_per_m", { header: "xP/£/GW", cell: (i) => fmt(2)(i.getValue()) }),

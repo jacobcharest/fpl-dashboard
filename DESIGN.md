@@ -784,3 +784,46 @@ per-position residual in 2025/26 is 111 pts across all defenders. 2021/22: all 7
 2022/23 Haaland series: GW15 null, GW16 onward populated. Sorting and numeric filtering on
 `expected_points` work, including with Per Start. `tsc -b` and `oxlint` clean (one pre-existing
 warning).
+
+## Round 12: FPL Review's price-progress on the Prices page
+
+- FPL Review's planner data carries `price_progress` per player: their estimate of progress to
+  the next price change, in tenths of a percent (-1000 about to fall .. +1000 about to rise;
+  e.g. a suspended 0.3%-owned defender at -998, a 41%-owned keeper with +11k net transfers at
+  +947). `fplreview_export.js` now writes it as a per-player column, `app/fplreview.py` reads it
+  back from the CSV and `prices.store_fplreview_progress` records it (as a percentage) in a new
+  `player_price_snapshots.fplreview_progress` column on today's price day.
+- Stored **per day, next to the transfer counts**, not as a single latest value: that makes it
+  a second labelled series for the phase-2 calibration in round 8 - their estimate can be scored
+  against what prices then did, and against this dashboard's own Pressure.
+- `capture_snapshot` became an upsert (was `INSERT OR REPLACE`) so a same-day recapture doesn't
+  null the reading. The nightly price timer now also runs `refresh_projections` (3h rate limit,
+  never fatal), so every stored day gets a reading and projections stay fresh as a side effect.
+- Prices page: **FPLR Δ%** column beside Pressure, signed and coloured, tooltip stating it's
+  their model and which day it was read (`progress_day`). The query takes each player's most
+  recent non-null reading. The two columns can disagree - Pressure counts from the last change
+  the snapshots saw (or this gameweek), theirs from further back - which is the reason to show
+  both rather than pick one. Verified: a real fetch stored 659 of 662 players' readings.
+
+## Round 13: strength of schedule on the Projections page
+
+- New **SoS** column beside Price: the mean of FPL's fixture difficulty ratings (1 easy - 5
+  hard) over the *ticked* gameweeks, so it re-computes with the Weeks boxes like every other
+  column. Per club - every player at a club shares it. The cell's tooltip spells the run out
+  ("LIV (A) 4, IPS (H) 2, ...", "+" joins a double, "-" marks a blank) with the fixture count,
+  since a mean over five fixtures and one over six aren't the same thing. Only the ends are
+  coloured (<= 2.6 green, >= 3.4 red) so a middling run doesn't light the column up. Sortable
+  and filterable server-side like the rest.
+- **Why FPL's rating rather than one computed here**: the bootstrap's attack/defence strength
+  splits - which would have allowed a position-aware rating (a defender cares about the
+  opponent's attack, a forward about its defence) - are all zero this season, and five
+  gameweeks of xG is too thin to rate opponents on. FDR is also the number on the FPL site, so
+  it can be checked by eye. Its limit is stated in the header tooltip: one rating per fixture,
+  the same for every position. Note xP already prices fixtures in; SoS is context for it, not
+  an extra term to add on top.
+- `fixtures` gains `team_h_difficulty` / `team_a_difficulty` (via `ADDED_COLUMNS`), written by
+  the live refresh; the archive path leaves them NULL. `queries._schedule_strength` builds the
+  per-team frame and `query_projections` merges it. Verified on 2026/27 GW6-11: all 380
+  fixtures rated; Man City 2.83 from LIV(A)4 IPS(H)2 AVL(A)4 BHA(H)2 NFO(A)3 FUL(H)2 = 17/6;
+  range across clubs 2.50 (Coventry) to 3.67 (Leeds).
+

@@ -282,6 +282,8 @@ def backfill_live_season(conn, season_id: str, bootstrap: dict | None = None) ->
                 "team_a_code": team_a_code,
                 "team_h_score": _num(f.get("team_h_score"), int),
                 "team_a_score": _num(f.get("team_a_score"), int),
+                "team_h_difficulty": _num(f.get("team_h_difficulty"), int),
+                "team_a_difficulty": _num(f.get("team_a_difficulty"), int),
             }
         )
 
@@ -533,15 +535,17 @@ def _write_season(conn, season_id, team_rows, player_rows, fixture_rows, gw_rows
         cur.execute(
             """INSERT INTO fixtures
                  (season_id, fixture_id, round, kickoff_time, team_h_code, team_a_code,
-                  team_h_score, team_a_score)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                  team_h_score, team_a_score, team_h_difficulty, team_a_difficulty)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                ON CONFLICT(season_id, fixture_id) DO UPDATE SET
                  round=excluded.round,
                  kickoff_time=excluded.kickoff_time,
                  team_h_code=excluded.team_h_code,
                  team_a_code=excluded.team_a_code,
                  team_h_score=excluded.team_h_score,
-                 team_a_score=excluded.team_a_score""",
+                 team_a_score=excluded.team_a_score,
+                 team_h_difficulty=excluded.team_h_difficulty,
+                 team_a_difficulty=excluded.team_a_difficulty""",
             (
                 season_id,
                 r["fixture_id"],
@@ -551,6 +555,8 @@ def _write_season(conn, season_id, team_rows, player_rows, fixture_rows, gw_rows
                 r["team_a_code"],
                 r["team_h_score"],
                 r["team_a_score"],
+                r.get("team_h_difficulty"),
+                r.get("team_a_difficulty"),
             ),
         )
 

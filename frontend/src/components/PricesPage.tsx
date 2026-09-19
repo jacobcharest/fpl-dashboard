@@ -21,6 +21,7 @@ const EMPTY: PriceTable = {
   snapshot_days: 0,
   total_players: null,
   unlisted: 0,
+  progress_day: null,
   squad: null,
   rows: [],
   warning: null,
@@ -100,6 +101,13 @@ function buildColumns(table: PriceTable, squad: Map<number, SquadPick>, squadFir
       header: head("Pressure", "Net transfers since the last price change, as a % of the managers who own the player. A ranking signal, not a prediction: FPL's thresholds aren't public. Blank under ~1,000 owners, where it's noise."),
       cell: (i) => <Delta value={i.getValue() == null ? null : Math.round(i.getValue() * 100) / 100} format={(a) => `${a.toFixed(2)}%`} />,
     }),
+    helper.accessor("fplreview_progress", {
+      header: head(
+        "FPLR Δ%",
+        `FPL Review's estimate of how far the player is towards their next price change: +100% is on the point of rising, −100% of falling. Their model, not this dashboard's.${table.progress_day ? ` Read ${shortDay(table.progress_day)}.` : " Not fetched yet - press Fetch New Data."}`
+      ),
+      cell: (i) => <Delta value={i.getValue() == null ? null : Math.round(i.getValue())} format={(a) => `${a}%`} />,
+    }),
     helper.accessor("change_day", {
       header: head("Δ Day", table.prev_day ? `Price change since the ${shortDay(table.prev_day)} snapshot` : "Needs a second day of snapshots"),
       cell: (i) => priceDelta(i.getValue()),
@@ -163,6 +171,7 @@ const FILTERABLE_COLUMNS = [
   "net_day",
   "net_since_change",
   "pressure",
+  "fplreview_progress",
   "purchase_price",
   "selling_price",
   "profit",

@@ -16,6 +16,7 @@ Needs Chrome or Chromium plus a matching chromedriver. Both are auto-detected; s
 FPL_CHROME_BINARY / FPL_CHROMEDRIVER to override.
 """
 
+import csv
 import os
 import shutil
 import time
@@ -23,6 +24,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from app.db import DB_PATH
+from app.prices import store_fplreview_progress
 from app.projections import import_projections
 
 PLANNER_URL = "https://app.fplreview.com/free"
@@ -176,6 +178,18 @@ def last_import_time(conn, season_id: str) -> datetime | None:
     return datetime.fromisoformat(last) if last else None
 
 
+def read_price_progress(path: Path) -> dict[int, float]:
+    """player_code -> FPL Review's progress to the next price change, as a percentage
+    (-100 about to fall .. +100 about to rise). The page carries it in tenths of a percent."""
+    out = {}
+    with open(path, newline="") as f:
+        for row in csv.DictReader(f):
+            raw, code = row.get("price_progress"), row.get("code")
+            if raw not in (None, "") and code:
+                out[int(float(code))] = float(raw) / 10.0
+    return out
+
+
 def refresh_projections(conn, season_id: str, force: bool = False) -> dict:
     """Fetch + import, for Fetch New Data. Never raises: a projections problem must not fail the
     stats refresh it rides along with. Returns {status, message, ...} for the UI."""
@@ -195,6 +209,7 @@ def refresh_projections(conn, season_id: str, force: bool = False) -> dict:
     try:
         path = fetch_csv(entry["entry_id"])
         summary = import_projections(conn, season_id, str(path), SOURCE)
+        store_fplreview_progress(conn, season_id, read_price_progress(path))
     except Exception as e:
         return {"status": "failed", "message": f"projections not updated: {e}"}
     gws = summary["gameweeks"]

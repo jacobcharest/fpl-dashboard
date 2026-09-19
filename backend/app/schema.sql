@@ -49,6 +49,8 @@ CREATE TABLE IF NOT EXISTS fixtures (
     team_a_code   INTEGER,
     team_h_score  INTEGER,
     team_a_score  INTEGER,
+    team_h_difficulty INTEGER,   -- FPL's fixture difficulty rating for the home side, 1 easy - 5 hard
+    team_a_difficulty INTEGER,   -- ... and for the away side. Live season only; NULL in the archive
     PRIMARY KEY (season_id, fixture_id)
 );
 CREATE INDEX IF NOT EXISTS idx_fixtures_round ON fixtures(season_id, round);
@@ -160,6 +162,7 @@ CREATE TABLE IF NOT EXISTS player_price_snapshots (
     transfers_out_event INTEGER,
     selected_by_percent REAL,
     status              TEXT,              -- a / d / i / s / u / n, as FPL flags availability
+    fplreview_progress  REAL,              -- FPL Review's progress to the next change, -100..100 %; NULL if not fetched that day
     PRIMARY KEY (season_id, player_code, price_day)
 );
 CREATE INDEX IF NOT EXISTS idx_pps_day ON player_price_snapshots(season_id, price_day);

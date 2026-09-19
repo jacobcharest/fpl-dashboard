@@ -122,6 +122,8 @@ counts over the window - sortable and filterable like the main tables. Beside th
 rates for comparing players across window lengths: **xP/GW** (xP over the gameweeks the source
 projected inside the window) and **xP/£/GW** (that rate per £m of current price). Which of these a source
 fills depends on the file: FPL Review's export carries all of them, a points-only file just xP.
+**SoS** is the strength of schedule over the ticked weeks - the average of FPL's fixture
+difficulty ratings, 1 easy to 5 hard, so lower is kinder; hover a value to see the fixtures.
 Its controls sit in a bar above it: a **Weeks** row with one tick box per gameweek the source
 covers (which also drives the Players board's xP column, so the two never disagree; any set works, so you
 can skip a blank or a bad fixture) and a **Position** filter independent of the board's own. The
@@ -143,6 +145,10 @@ whenever you press "Sync My Team" - still no login involved.
 **Pressure** is net transfers since a player's price last changed, as a share of the managers
 who own them: sort by it to see who the market is piling into or out of. It's a ranking signal,
 not a prediction - FPL doesn't publish its thresholds.
+
+**FPLR Δ%** is FPL Review's own estimate of how close each player is to a change (+100% about to
+rise, −100% about to fall), read whenever projections are fetched. It's their model, shown
+beside Pressure for comparison; neither is a guarantee.
 
 FPL's API keeps no price history, so the dashboard records its own, one snapshot per day. Opening
 the page or pressing "Fetch New Data" takes one; to avoid missing days when you don't open it,

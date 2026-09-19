@@ -312,6 +312,48 @@ def query_players(conn, filters: TableFilters, per_start: bool) -> list[dict]:
     return _records(agg[columns])
 
 
+def _schedule_strength(conn, season_id: str, gameweeks: list[int]) -> pd.DataFrame:
+    """Per team over these gameweeks: `sos`, the mean of FPL's fixture difficulty ratings
+    (1 easy - 5 hard) across the fixtures they play, and `fixtures`, those fixtures spelled out
+    ("LEE (H) 2, NFO (A) 3"). A double gameweek contributes both fixtures; a blank contributes
+    none and shows as "-", so the mean is over matches actually played - `fixture_count` is
+    there to tell a kind run from a short one.
+
+    FPL's own rating rather than one derived here: the bootstrap's attack/defence strength
+    splits are all zero this season, and five gameweeks of xG is too little to rate opponents
+    on. It is one number per fixture, so it can't tell a defender's fixture from a forward's."""
+    empty = pd.DataFrame(columns=["team_code", "sos", "fixture_count", "fixtures"])
+    if not gameweeks:
+        return empty
+    rows = conn.execute(
+        f"""SELECT f.round, f.kickoff_time, f.team_h_code, f.team_a_code, f.team_h_difficulty, f.team_a_difficulty,
+                   h.short_name AS h_name, a.short_name AS a_name
+            FROM fixtures f
+            JOIN teams h ON h.season_id = f.season_id AND h.team_code = f.team_h_code
+            JOIN teams a ON a.season_id = f.season_id AND a.team_code = f.team_a_code
+            WHERE f.season_id = ? AND f.round IN ({_placeholders(gameweeks)})
+            ORDER BY f.round, f.kickoff_time""",
+        (season_id, *gameweeks),
+    ).fetchall()
+    per_team: dict[int, list[tuple[int, str, int | None]]] = {}
+    for r in rows:
+        per_team.setdefault(r["team_h_code"], []).append((r["round"], f"{r['a_name']} (H)", r["team_h_difficulty"]))
+        per_team.setdefault(r["team_a_code"], []).append((r["round"], f"{r['h_name']} (A)", r["team_a_difficulty"]))
+    out = []
+    for team_code, played in per_team.items():
+        rated = [d for _, _, d in played if d is not None]
+        by_round = {gw: [f"{label} {d}" if d is not None else label for g, label, d in played if g == gw] for gw in gameweeks}
+        out.append(
+            {
+                "team_code": team_code,
+                "sos": sum(rated) / len(rated) if rated else None,
+                "fixture_count": len(played),
+                "fixtures": ", ".join(" + ".join(by_round[gw]) or "-" for gw in gameweeks),
+            }
+        )
+    return pd.DataFrame(out) if out else empty
+
+
 def query_projections(conn, filters: TableFilters) -> dict:
     """One row per player for a projection source over the requested gameweek window: xP, xG,
     xA summed; xCS and xDC summed too, so they read as expected clean sheets / expected
@@ -380,10 +422,11 @@ def query_projections(conn, filters: TableFilters) -> dict:
     df = df[df["team_code"].isin(included)]
     if filters.positions is not None:
         df = df[df["position"].isin(filters.positions)]
+    df = df.merge(_schedule_strength(conn, filters.season_id, selected), on="team_code", how="left")
     df = _apply_numeric_filters(df, filters.filters)
     df = _apply_sort(df, filters.sort, default_column="xp_total")
 
-    columns = ["player_code", "web_name", "team_name", "position", "price",
+    columns = ["player_code", "web_name", "team_name", "position", "price", "sos", "fixture_count", "fixtures",
                "xp_per_gw", "xp_per_gw_per_m", "xp_total", "xmins_avg", "xg", "xa", "xcs", "xdc"]
     return {"gameweeks": gameweeks, "played_through": played_through, "rows": _records(df[columns])}
 
