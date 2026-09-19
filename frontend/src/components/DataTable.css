@@ -123,6 +123,15 @@
   box-shadow: inset 3px 0 0 var(--accent-dim);
 }
 
+/* Club code beside a player's name: there to tell two Johnsons apart, not to compete with it. */
+.player-team {
+  margin-left: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.03em;
+  color: var(--text-faint);
+}
+
 .armband {
   display: inline-block;
   margin-left: 6px;
