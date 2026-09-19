@@ -827,3 +827,20 @@ warning).
   fixtures rated; Man City 2.83 from LIV(A)4 IPS(H)2 AVL(A)4 BHA(H)2 NFO(A)3 FUL(H)2 = 17/6;
   range across clubs 2.50 (Coventry) to 3.67 (Leeds).
 
+## Round 14: past strength of schedule on the Players table
+
+- The Players table gains **SoS** (after Own%): the mean FPL fixture difficulty of **the matches
+  the row's stats come from**. It is computed from the same filtered `player_gw_stats` rows as
+  everything else in the table (`_past_schedule_strength`), so it follows the per-team gameweek
+  ranges, the opponent filter and Per Start without any extra rules - and, unlike the
+  Projections view's club-level SoS, it is per player: someone who joined in GW3 is rated on
+  the fixtures since GW3. It's the context for form: 30 points against a 2.2 schedule and 30
+  against a 3.6 are different things.
+- Only fixtures with a score count (the frame `load_season_frames` already returns), so a
+  gameweek in play doesn't pull unplayed matches into "past". Checked on Haaland, 2026/27 GW1-5
+  with GW5 unplayed: ratings 3, 3, 2, 4 -> 3.00, not 2.80 with GW5's 2 included.
+- Same colouring as the Projections column (classes moved to `DataTable.css`); sortable and
+  filterable. The archive ingest now reads `team_h/a_difficulty` from `fixtures.csv` where the
+  season has it, so past seasons get the column after being re-fetched; until then, and for the
+  two oldest seasons that have no fixtures file, it shows "-".
+

@@ -161,6 +161,9 @@ def resolve_fixtures(season_id, gws_df, season_team_id_to_code, element_id_to_te
                     "team_a_code": team_a_code,
                     "team_h_score": int(row["team_h_score"]) if pd.notna(row["team_h_score"]) else None,
                     "team_a_score": int(row["team_a_score"]) if pd.notna(row["team_a_score"]) else None,
+                    # FPL's fixture difficulty ratings; in the archive's fixtures.csv from 2018-19 on.
+                    "team_h_difficulty": _num(row.get("team_h_difficulty"), int),
+                    "team_a_difficulty": _num(row.get("team_a_difficulty"), int),
                 }
             )
         return rows

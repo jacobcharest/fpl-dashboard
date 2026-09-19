@@ -256,8 +256,23 @@ def _placeholders(values: list) -> str:
     return ", ".join("?" for _ in values)
 
 
+def _past_schedule_strength(rows: pd.DataFrame, fixtures: pd.DataFrame) -> pd.DataFrame:
+    """Per player: `sos`, the mean FPL fixture difficulty (1 easy - 5 hard) of the fixtures
+    behind `rows` - i.e. of exactly the matches the table's other numbers are drawn from, so it
+    follows the gameweek windows, the opponent filter and Per Start. It's the context for a hot
+    or cold run: 30 points against a 2.2 schedule and 30 against a 3.6 aren't the same form.
+    NaN where the season's fixtures carry no ratings (the oldest archive seasons)."""
+    if rows.empty or fixtures.empty or "team_h_difficulty" not in fixtures.columns:
+        return pd.DataFrame(columns=["player_code", "sos"])
+    rated = rows[["player_code", "fixture_id", "was_home"]].merge(
+        fixtures[["fixture_id", "team_h_difficulty", "team_a_difficulty"]], on="fixture_id", how="left"
+    )
+    rated["difficulty"] = rated["team_h_difficulty"].where(rated["was_home"] == 1, rated["team_a_difficulty"])
+    return rated.groupby("player_code")["difficulty"].mean().rename("sos").reset_index()
+
+
 def query_players(conn, filters: TableFilters, per_start: bool) -> list[dict]:
-    player_gw, _fixtures, teams, players = load_season_frames(conn, filters.season_id)
+    player_gw, fixtures, teams, players = load_season_frames(conn, filters.season_id)
 
     rows = _rows_in_team_windows(player_gw, filters.teams)
     if filters.opponent_team_codes is not None:
@@ -283,6 +298,7 @@ def query_players(conn, filters: TableFilters, per_start: bool) -> list[dict]:
     ).reset_index()
 
     agg = agg.merge(_defensive_contribution_hit_rate(rows, players), on="player_code", how="left")
+    agg = agg.merge(_past_schedule_strength(rows, fixtures), on="player_code", how="left")
 
     if per_start:
         for c in PLAYER_STAT_COLUMNS:
@@ -303,7 +319,7 @@ def query_players(conn, filters: TableFilters, per_start: bool) -> list[dict]:
     agg = _apply_sort(agg, filters.sort, default_column="total_points")
 
     columns = (
-        ["player_code", "web_name", "team_name", "position", "price", "selected_by_percent", "minutes"]
+        ["player_code", "web_name", "team_name", "position", "price", "selected_by_percent", "sos", "minutes"]
         + PLAYER_STAT_COLUMNS
         + ["defensive_contribution_hit_rate"]
     )

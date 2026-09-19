@@ -232,3 +232,22 @@
   line-height: 15px;
   text-align: center;
 }
+
+/* Strength of schedule: only the ends of the range are coloured, so a run of middling
+   fixtures doesn't light up the column. Green is kind, red is hard. Shared by the Players
+   table (fixtures already played) and the Projections table (fixtures to come). */
+.sos {
+  font-variant-numeric: tabular-nums;
+}
+
+.sos[title] {
+  cursor: help;
+}
+
+.sos-easy {
+  color: var(--up);
+}
+
+.sos-hard {
+  color: var(--down);
+}

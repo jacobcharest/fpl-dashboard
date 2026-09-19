@@ -122,6 +122,8 @@ counts over the window - sortable and filterable like the main tables. Beside th
 rates for comparing players across window lengths: **xP/GW** (xP over the gameweeks the source
 projected inside the window) and **xP/£/GW** (that rate per £m of current price). Which of these a source
 fills depends on the file: FPL Review's export carries all of them, a points-only file just xP.
+(The Players table has an **SoS** column too, looking backwards: the average difficulty of the
+matches a player's stats came from, following whatever gameweek ranges and filters are set.)
 **SoS** is the strength of schedule over the ticked weeks - the average of FPL's fixture
 difficulty ratings, 1 easy to 5 hard, so lower is kinder; hover a value to see the fixtures.
 Its controls sit in a bar above it: a **Weeks** row with one tick box per gameweek the source

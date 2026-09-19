@@ -61,7 +61,9 @@ export interface PlayerRow {
   team_name: string;
   position: string;
   price: number;
-  selected_by_percent: number | null; // ownership %; null until the season is (re)fetched
+  selected_by_percent: number | null;
+  // Mean FPL fixture difficulty (1 easy - 5 hard) of the matches behind this row's stats.
+  sos: number | null; // ownership %; null until the season is (re)fetched
   minutes: number;
   total_points: number;
   expected_points: number | null; // backward-looking; null where the season/round has no xG data
