@@ -29,6 +29,18 @@ function buildColumns(perStart: boolean, squad: Map<number, SquadPick>, projLabe
     helper.accessor("position", { header: "Pos", cell: (i) => <PositionBadge position={i.getValue()} /> }),
     helper.accessor("price", { header: "Price", cell: (i) => `£${i.getValue().toFixed(1)}` }),
     helper.accessor("selected_by_percent", { header: "Own%", cell: (i) => fmtPct(i.getValue()) }),
+    helper.accessor("sos", {
+      header: () => (
+        <span title="Past strength of schedule: the average of FPL's fixture difficulty ratings (1 easy - 5 hard) for the matches these stats come from, so it follows the gameweek ranges, the opponent filter and Per Start. Lower means the numbers were earned against kinder opposition. The Projections view has the same column for the fixtures to come.">
+          SoS
+        </span>
+      ),
+      cell: (i) => {
+        const v = i.getValue() as number | null;
+        if (v == null) return "-";
+        return <span className={`sos ${v <= 2.6 ? "sos-easy" : v >= 3.4 ? "sos-hard" : ""}`}>{v.toFixed(2)}</span>;
+      },
+    }),
     // Per-start points are a fractional rate (e.g. 7.4), not a whole count, so they need a
     // decimal place to be meaningful - raw points stay integers.
     helper.accessor("total_points", { header: "Pts", cell: (i) => fmt(perStart ? 1 : 0)(i.getValue()) }),
@@ -82,6 +94,7 @@ function buildColumns(perStart: boolean, squad: Map<number, SquadPick>, projLabe
 const FILTERABLE_COLUMNS = [
   "price",
   "selected_by_percent",
+  "sos",
   "total_points",
   "expected_points",
   "minutes",

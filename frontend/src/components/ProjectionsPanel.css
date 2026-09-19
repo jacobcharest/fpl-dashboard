@@ -102,18 +102,3 @@
 .gw-picker button {
   margin-left: 4px;
 }
-
-/* Strength of schedule: only the ends of the range are coloured, so a run of middling
-   fixtures doesn't light up the column. Green is kind, red is hard. */
-.sos {
-  font-variant-numeric: tabular-nums;
-  cursor: help;
-}
-
-.sos-easy {
-  color: var(--up);
-}
-
-.sos-hard {
-  color: var(--down);
-}
