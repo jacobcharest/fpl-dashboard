@@ -902,3 +902,54 @@ player-cutoffs:
   here (FPL Review's xP already does this job, with team news); recorded because it says where a
   home-grown forecast would get its value.
 
+
+## Round 16: the transfer planner (`backend/app/optimizer.py`)
+
+The six-week optimiser that the weekly plans in `fpl/gw*-plan.md` were run with, previously a
+one-off script in chat, now lives in the repo: `scripts/plan_transfers.py` (CLI) over
+`app/optimizer.py` (the model), with `scripts/simulate_upside.py` for the haul-upside term.
+
+### The model
+
+A mixed-integer program (PuLP, CBC or HiGHS) over the projection horizon. Per week it decides the
+15 held, buys/sells, the XI, the captain and the chip, under FPL's rules: 2/5/5/3, max 3 per
+club, legal formations, buy at market price and sell at `prices.selling_price`, free transfers
+rolling up to the cap of 5, `hit_cost` (4) for each transfer beyond them, Wildcard weeks free.
+Objective: discounted (0.9 per week) projected points of the XI, captain doubled (tripled under
+Triple Captain), bench at 10% (fully in a Bench Boost week), minus hits, plus `lambda` x upside.
+Chips can be pinned to a week or left to the solver (`auto`). Free Hit is not modelled.
+
+### Valuing a banked transfer (the change from the chat version)
+
+The chat version gave a rolled transfer no value of its own, so any move that beat rolling by a
+fraction of a point was taken - with later-week projections treated as certain. The four
+FPL Review snapshots in `fpl/snapshots/` (20-24 Oct 2026, 191 regular starters) show why that's
+wrong: a week's projection drifts ~0.2-0.3 pts over a few days, the nearest week most (SD 0.6
+over 4.7 days, 3% of players moving 1.5+), and the top-10 candidates at a position sit within
+1-3 pts of each other over six weeks - so the best move today is often not the best one in a
+week, and a spare transfer is also injury insurance (~37%/week that one of 15 gets news).
+
+So the objective adds a carry value for each transfer banked into the next week, marginal and
+concave: `--ft-value 2,1.25,0.75,0.25` for the 2nd..5th (default), zero at the cap. A move now has
+to beat rolling by about 2 pts. `--ft-value 0` reproduces the old behaviour. Checked against the
+GW9 one-FT run of 24 Oct: without the carry value, Ajer -> Silva 289.0 vs roll 288.1 (the chat
+run had 287.9 vs 287.0); with it, roll wins.
+
+### Upside (`scripts/simulate_upside.py`)
+
+Per player-gameweek, draws a score from the projection's parts (appearance from xMins, Poisson
+goals and assists from xG/xA, clean sheet at xCS, defensive contribution at xDC, a bonus
+formula) and reports the chance of 10+ and the expected points above 10 (`up`). Independent
+draws, no teammate correlation, no cards or saves: a ranking of ceilings, not exact odds.
+
+### Inputs and caveats
+
+- Projections: the FPL Review export (`data/fplreview-latest.csv` by default, any snapshot via
+  `--csv`). Squad: `--entry` reads the gameweek in play from the live API, so transfers already
+  made for the coming week and the free-transfer count aren't visible - pass `--free-transfers`
+  and, if you've moved early, a `--squad` JSON. Purchase prices come from the transfer history
+  (as "Sync My Team" does); if that fails, players sell at market price.
+- Players bought inside the horizon are assumed to sell for what they cost; prices don't move in
+  the model.
+- Pool: the squad plus the top 40 per position by horizon projection (`--pool`); solves in
+  5-10 s on a laptop.

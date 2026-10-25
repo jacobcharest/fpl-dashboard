@@ -52,6 +52,24 @@ No action needed once the season actually starts — the normal "Fetch New Data"
 automatically replaces the placeholder with real data and clears the flag the first time it
 succeeds.
 
+## Plan transfers
+
+The six-week transfer planner (see DESIGN.md, "Round 16") needs an FPL Review projections file
+(`data/fplreview-latest.csv` is written by "Fetch New Data" or `scripts/fetch_fplreview.py`):
+
+```bash
+# Haul upside per player-gameweek (optional, feeds --lambda)
+backend/.venv/bin/python backend/scripts/simulate_upside.py data/fplreview-latest.csv data/upside.csv
+
+# The plan: transfers, XI, captain and chips for the next six gameweeks
+backend/.venv/bin/python backend/scripts/plan_transfers.py --entry 1234567 --free-transfers 1 \
+    --upside data/upside.csv --lambda 1 --bench-boost auto
+```
+
+`--ft-value` sets what a banked free transfer is worth (default `2,1.25,0.75,0.25` for the 2nd
+to 5th; `0` to plainly maximise projections), `--max-transfers 9=0` tests rolling,
+`--force-in`/`--force-out` pin moves. `--help` lists the rest.
+
 ## Highlight your own team
 
 Enter your FPL team id in the **"My team id"** box in the toolbar and press **"Sync My Team"** to
