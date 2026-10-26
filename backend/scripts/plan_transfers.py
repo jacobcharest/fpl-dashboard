@@ -7,6 +7,7 @@
     ... --bench-boost auto --triple-captain 12 # chips: a gameweek, "auto", or omit
     ... --ft-value 2,1.25,0.75,0.25            # carry value of the 2nd..5th banked transfer
     ... --ft-value 0                           # plain "maximise projections" solve
+    ... --money-value 1.5 / --no-price-moves   # what £1m of team value is worth; or ignore prices
     ... --max-transfers 9=0                    # test rolling in GW9
     ... --force-in 9=12345 --force-out 9=678   # pin moves by player code
     ... --json plan.json                       # machine-readable output as well
@@ -27,7 +28,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from app.db import DB_PATH, get_connection
 from app.my_team import fetch_bootstrap, fetch_entry, fetch_picks, latest_available_event, purchase_prices
-from app.optimizer import AUTO, Plan, Player, Settings, Squad, solve
+from app.optimizer import AUTO, Plan, Player, Settings, Squad, expected_change, solve
 
 PTS_COL = re.compile(r"^(\d{1,2})_Pts$")
 
@@ -44,6 +45,8 @@ def load_projections(path: Path) -> list[Player]:
                 m = PTS_COL.match(col or "")
                 if m and val not in (None, ""):
                     xp[int(m.group(1))] = float(val)
+            progress = row.get("price_progress")
+            progress = float(progress) if progress not in (None, "") else None
             players.append(
                 Player(
                     code=int(float(row["code"])),
@@ -52,6 +55,8 @@ def load_projections(path: Path) -> list[Player]:
                     pos=row["pos"],
                     price=int(round(float(row["price"]) * 10)),
                     xp=xp,
+                    expected_change=expected_change(progress),
+                    price_progress=progress,
                 )
             )
     return players
@@ -126,11 +131,29 @@ def money(tenths: int) -> str:
     return f"£{tenths / 10:.1f}m"
 
 
+def timing_note(wk) -> str:
+    """When to make this week's transfers: before tonight's price change, or wait for team news.
+
+    A sale of a player about to fall, or a buy of one about to rise, is worth doing tonight;
+    anything else can wait for the deadline and the news that comes before it.
+    """
+    now = [f"{p.name} {p.price_progress / 10:+.0f}%" for p in wk.transfers_out if (p.price_progress or 0) <= -500]
+    now += [f"{p.name} {p.price_progress / 10:+.0f}%" for p in wk.transfers_in if (p.price_progress or 0) >= 500]
+    if now:
+        return f"   Price timing: do tonight, before the change ({', '.join(now)})"
+    wait = [f"{p.name} {p.price_progress / 10:+.0f}%" for p in wk.transfers_in if (p.price_progress or 0) <= -500]
+    if wait:
+        return f"   Price timing: wait, buy after the fall ({', '.join(wait)})"
+    return "   Price timing: no move pending, wait for team news"
+
+
 def print_plan(plan: Plan, settings: Settings) -> None:
-    print(f"Objective {plan.objective:.1f} ({plan.status}), discount {settings.discount}, "
+    print(f"Objective {plan.objective:.1f} = points {plan.objective - plan.team_value_points:.1f} "
+          f"+ team value {plan.team_value_points:.1f} ({plan.status}), discount {settings.discount}, "
           f"hit {settings.hit_cost:g}, carry values {list(settings.ft_values)}, "
-          f"upside weight {settings.upside_weight:g}\n")
-    for wk in plan.weeks:
+          f"upside weight {settings.upside_weight:g}, team value {settings.money_value:g} pts/£1m"
+          f"{'' if settings.price_moves else ', price moves off'}\n")
+    for n, wk in enumerate(plan.weeks):
         moves = ", ".join(
             f"{o.name} → {i.name} ({i.team} {money(i.price)})"
             for o, i in zip(wk.transfers_out, wk.transfers_in)
@@ -138,7 +161,9 @@ def print_plan(plan: Plan, settings: Settings) -> None:
         chip = f", {wk.chip}" if wk.chip else ""
         hit = f", hit −{wk.hits * settings.hit_cost:g}" if wk.hits else ""
         print(f"GW{wk.gameweek}: {moves}{hit}{chip}. FTs after: {wk.free_transfers_after}, "
-              f"bank {money(wk.bank)}, projected {wk.projected:.1f}")
+              f"bank {money(wk.bank)}, team value {money(wk.team_value)}, projected {wk.projected:.1f}")
+        if n == 0 and (wk.transfers_in or wk.transfers_out):
+            print(timing_note(wk))
         xi = ", ".join(f"{p.name}{' (C)' if p is wk.captain else ''}" for p in wk.lineup)
         print(f"   XI: {xi}")
         print(f"   Bench: {', '.join(p.name for p in wk.bench)}\n")
@@ -150,6 +175,7 @@ def plan_to_dict(plan: Plan) -> dict:
 
     return {
         "objective": plan.objective,
+        "team_value_points": plan.team_value_points,
         "status": plan.status,
         "weeks": [
             {
@@ -163,6 +189,7 @@ def plan_to_dict(plan: Plan) -> dict:
                 "captain": pl(w.captain, w.gameweek),
                 "chip": w.chip,
                 "bank": w.bank,
+                "team_value": w.team_value,
                 "projected": w.projected,
             }
             for w in plan.weeks
@@ -180,6 +207,10 @@ def main():
     ap.add_argument("--upside", type=Path, help="upside CSV from scripts/simulate_upside.py")
     ap.add_argument("--lambda", dest="upside_weight", type=float, default=0.0,
                     help="weight of the upside term (default 0)")
+    ap.add_argument("--money-value", type=float, default=1.5,
+                    help="points per £1m of team value at the end of the horizon (default 1.5)")
+    ap.add_argument("--no-price-moves", action="store_true",
+                    help="ignore FPL Review's price progress (prices stay put)")
     ap.add_argument("--free-transfers", type=int, default=1)
     ap.add_argument("--bank", type=float, help="override the bank, in £m")
     ap.add_argument("--horizon", type=int, default=6, help="gameweeks to plan (default 6)")
@@ -231,6 +262,8 @@ def main():
         ft_cap=args.ft_cap,
         ft_values=ft_values,
         upside_weight=args.upside_weight,
+        money_value=args.money_value,
+        price_moves=not args.no_price_moves,
         bench_boost=chip_arg(args.bench_boost),
         triple_captain=chip_arg(args.triple_captain),
         wildcard=args.wildcard,

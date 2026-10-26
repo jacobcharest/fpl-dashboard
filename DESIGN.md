@@ -935,6 +935,29 @@ to beat rolling by about 2 pts. `--ft-value 0` reproduces the old behaviour. Che
 GW9 one-FT run of 24 Oct: without the carry value, Ajer -> Silva 289.0 vs roll 288.1 (the chat
 run had 287.9 vs 287.0); with it, roll wins.
 
+### Valuing price rises and falls
+
+Money only scores when it's spent, so the plain model gave a £0.1m rise or fall no value at all:
+a sale before a fall and a sale after it looked identical. Two additions:
+
+- **Expected price change per player**, from FPL Review's `price_progress` (-1000..1000) read
+  as a probability: +440 is a 44% chance of +£0.1m before next week, -1125 a certain fall. It
+  is applied once, after this week's transfers, so this week's moves are at today's prices and
+  every later week's at the moved ones (selling prices follow, half of a rise kept).
+  `--no-price-moves` switches it off.
+- **Team value at the end of the horizon** (bank + the 15's selling prices) in the objective at
+  `--money-value` points per £1m, default 1.5 and discounted like the last week. The rate comes
+  from the projections: along the best-player-per-price frontier of the 24 Oct snapshot an extra
+  £1m buys about 2 pts per six weeks for defenders and midfielders, 1.3 for keepers and
+  forwards, and the bank is only sometimes the binding constraint. So £0.1m is worth about
+  0.1-0.2 pts: enough to settle a tie (the GW9 run now puts Gonzalo -> Solanke 0.2 behind
+  Ajer -> Silva on points plus value, from 0.1 behind on points), never enough to spend a
+  transfer on. The objective is printed as points + team value so runs stay comparable.
+- **Timing note** on this week's transfers: sell a player past -50% or buy one past +50%
+  tonight, before the change; otherwise wait for team news. The trade-off that the note can't
+  see is that moving early gives up the information a later move would have, worth 0.5-1 pt
+  (see the carry value above), so it's only for moves that are settled anyway.
+
 ### Upside (`scripts/simulate_upside.py`)
 
 Per player-gameweek, draws a score from the projection's parts (appearance from xMins, Poisson
