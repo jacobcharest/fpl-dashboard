@@ -23,8 +23,16 @@ Decisions it understands, and the rules behind them:
 - **Upside.** An optional per-player-week "points above a haul" term, weighted by
   `upside_weight`, so the plan can favour ceilings as well as averages (see
   scripts/simulate_upside.py).
-- **Budget.** Selling an existing player raises FPL's selling price (half of any rise, see
-  prices.selling_price); a player bought inside the horizon is assumed to sell for what he cost.
+- **Budget and prices.** Selling an existing player raises FPL's selling price (half of any
+  rise, see prices.selling_price). Each player carries an expected price change (from FPL
+  Review's price progress, see `expected_change`), applied once, after this week's transfers:
+  so this week's moves are at today's prices, later ones at the moved prices, and selling prices
+  follow. A player bought inside the horizon is assumed to sell at the moved price (the
+  half-rise rule is skipped for him, a 0.05 error at most).
+- **Team value.** The bank plus the squad's selling prices at the end of the horizon count at
+  `money_value` points per £1m (discounted like the last week). Without it money in the bank is
+  worth nothing, so a sale before a fall or a buy before a rise would never be preferred; with it
+  £0.1m is worth about 0.1-0.2 pts, a tiebreak rather than a reason to move.
 
 The pool is trimmed to the squad plus the best projected players per position, which keeps the
 model small enough for CBC/HiGHS to solve in seconds.
@@ -33,8 +41,6 @@ model small enough for CBC/HiGHS to solve in seconds.
 from dataclasses import dataclass, field
 
 import pulp
-
-from app.prices import selling_price
 
 POSITIONS = ("GK", "DEF", "MID", "FWD")
 SQUAD_SIZE = {"GK": 2, "DEF": 5, "MID": 5, "FWD": 3}
@@ -53,6 +59,21 @@ class Player:
     price: int  # tenths of a million, as the FPL API stores it
     xp: dict[int, float] = field(default_factory=dict)  # gameweek -> projected points
     upside: dict[int, float] = field(default_factory=dict)  # gameweek -> points above a haul
+    # Expected price change before next week, in tenths (so -1.0 = a certain £0.1m fall).
+    expected_change: float = 0.0
+    price_progress: float | None = None  # FPL Review's -1000..1000, for the timing note
+
+
+def expected_change(price_progress: float | None) -> float:
+    """Expected move in tenths from FPL Review's progress towards the next change.
+
+    Progress is read as a probability: a player 44% of the way to a rise is given a 44% chance of
+    rising £0.1m before next week, one past 100% a certain move. Crude, and biased low for
+    players who keep trending, but the signal is only ever worth a tiebreak.
+    """
+    if price_progress is None:
+        return 0.0
+    return max(-1.0, min(1.0, price_progress / 1000))
 
 
 @dataclass
@@ -73,6 +94,8 @@ class Settings:
     # Marginal value of holding a 2nd, 3rd, 4th, 5th free transfer into next week.
     ft_values: tuple[float, ...] = (2.0, 1.25, 0.75, 0.25)
     upside_weight: float = 0.0
+    money_value: float = 1.5  # points per £1m of team value at the end of the horizon
+    price_moves: bool = True  # apply each player's expected_change from week 2 on
     bench_boost: int | str | None = None  # gameweek, AUTO, or None (not in window)
     triple_captain: int | str | None = None
     wildcard: int | None = None
@@ -97,12 +120,14 @@ class WeekPlan:
     chip: str | None
     bank: int
     projected: float  # expected points this week, chips and hits applied
+    team_value: int  # bank + selling prices of the 15, tenths, at that week's prices
 
 
 @dataclass
 class Plan:
     weeks: list[WeekPlan]
     objective: float
+    team_value_points: float  # the part of the objective that is end-of-horizon team value
     status: str
 
 
@@ -163,8 +188,15 @@ def solve(players: list[Player], squad: Squad, settings: Settings) -> Plan:
     codes = list(by_code)
     held = set(squad.codes)
 
-    def sell_value(p: Player) -> int:
-        return selling_price(squad.purchase[p.code], p.price) if p.code in squad.purchase else p.price
+    def price_at(p: Player, i: int) -> float:
+        return p.price + (p.expected_change if settings.price_moves and i > 0 else 0.0)
+
+    def sell_value(p: Player, i: int) -> float:
+        now = price_at(p, i)
+        if p.code not in squad.purchase:
+            return now
+        paid = squad.purchase[p.code]
+        return paid + (now - paid) / 2 if now >= paid else now
 
     m = pulp.LpProblem("transfer_plan", pulp.LpMaximize)
     B = pulp.LpBinary
@@ -262,7 +294,7 @@ def solve(players: list[Player], squad: Squad, settings: Settings) -> Plan:
         m += pulp.lpSum(z[k][w] for k in slots) <= ft_next[w] - 1
         # Money.
         m += bank[w] == prev_bank + pulp.lpSum(
-            sell_value(by_code[c]) * sell[c][w] - by_code[c].price * buy[c][w] for c in codes
+            sell_value(by_code[c], i) * sell[c][w] - price_at(by_code[c], i) * buy[c][w] for c in codes
         )
         # Points.
         week_pts = []
@@ -284,6 +316,9 @@ def solve(players: list[Player], squad: Squad, settings: Settings) -> Plan:
         prev_sq = {c: sq[c][w] for c in codes}
         prev_bank = bank[w]
 
+    last, last_i = gws[-1], len(gws) - 1
+    team_value_end = bank[last] + pulp.lpSum(sell_value(by_code[c], last_i) * sq[c][last] for c in codes)
+    objective.append(settings.discount**last_i * settings.money_value / 10 * team_value_end)
     m += pulp.lpSum(objective)
     solver = _solver(settings.time_limit)
     m.solve(solver)
@@ -295,7 +330,7 @@ def solve(players: list[Player], squad: Squad, settings: Settings) -> Plan:
         return var.value() is not None and var.value() > 0.5
 
     weeks = []
-    for w in gws:
+    for i, w in enumerate(gws):
         lineup = [by_code[c] for c in codes if on(st[c][w])]
         bench = [by_code[c] for c in codes if on(sq[c][w]) and not on(st[c][w])]
         captain = next(by_code[c] for c in codes if on(cap[c][w]))
@@ -319,9 +354,11 @@ def solve(players: list[Player], squad: Squad, settings: Settings) -> Plan:
                 chip=chip,
                 bank=int(round(bank[w].value())),
                 projected=pts - settings.hit_cost * n_hits,
+                team_value=int(round(bank[w].value() + sum(sell_value(p, i) for p in lineup + bench))),
             )
         )
-    return Plan(weeks=weeks, objective=pulp.value(m.objective), status=status)
+    tv_points = settings.discount**last_i * settings.money_value / 10 * pulp.value(team_value_end)
+    return Plan(weeks=weeks, objective=pulp.value(m.objective), team_value_points=tv_points, status=status)
 
 
 def _solver(time_limit: int):

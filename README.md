@@ -68,7 +68,9 @@ backend/.venv/bin/python backend/scripts/plan_transfers.py --entry 1234567 --fre
 
 `--ft-value` sets what a banked free transfer is worth (default `2,1.25,0.75,0.25` for the 2nd
 to 5th; `0` to plainly maximise projections), `--max-transfers 9=0` tests rolling,
-`--force-in`/`--force-out` pin moves. `--help` lists the rest.
+`--force-in`/`--force-out` pin moves, `--money-value` is what £1m of team value is worth in
+points (default 1.5, with FPL Review's expected price moves applied; `--no-price-moves` to
+ignore them). `--help` lists the rest.
 
 ## Highlight your own team
 
