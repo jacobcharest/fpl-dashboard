@@ -204,6 +204,23 @@ from whichever projections file was loaded when that gameweek's lineups were fir
 are kept from then on - so import your projections **before** the deadline, and gameweeks from
 before your first import stay blank. Importing a new file only replaces the gameweeks it covers.
 
+To size up the week once the deadline has passed and everyone's picks are public, run the
+comparison script against a projections file saved before the deadline:
+
+```bash
+backend/.venv/bin/python backend/scripts/compare_league.py --entry 1234567 --csv data/fplreview-latest.csv
+```
+
+It prints a table of every squad's projected points as picked (chip and captain included), its
+90th and 95th percentile ceiling, the chance it outscores yours this week and the chance it sits
+above you afterwards, your odds of each finishing rank, and for each rival the players that
+separate the two of you. The odds come from simulating the whole gameweek once, jointly, with
+`scripts/simulate_upside.py`: teammates share their side's goals and clean sheets, opponents
+pull against each other, and a player you both own cancels out exactly. Captaincy falls to the
+vice and the bench comes on for non-appearing starters as FPL does. `--league` picks a league
+other than your smallest, `--gw` a finished gameweek (useful with an older snapshot to see how a
+week was expected to go), `--independent` the old no-correlation model for comparison.
+
 ## Run
 
 ```bash

@@ -960,10 +960,23 @@ a sale before a fall and a sale after it looked identical. Two additions:
 
 ### Upside (`scripts/simulate_upside.py`)
 
-Per player-gameweek, draws a score from the projection's parts (appearance from xMins, Poisson
-goals and assists from xG/xA, clean sheet at xCS, defensive contribution at xDC, a bonus
-formula) and reports the chance of 10+ and the expected points above 10 (`up`). Independent
-draws, no teammate correlation, no cards or saves: a ranking of ceilings, not exact odds.
+Per player-gameweek, draws a score from the projection's parts (appearance from xMins, goals
+and assists from xG/xA, clean sheet at xCS, defensive contribution at xDC, a bonus formula) and
+reports the chance of 10+ and the expected points above 10 (`up`). No cards or saves: a ranking
+of ceilings, not exact odds.
+
+Draws are joint across a gameweek (`simulate_gameweek`), correlated through the match: each
+side's goals are one Poisson draw on its summed xG, shared out among the teammates who appear
+in proportion to their xG, so three goals means three scorers rather than three independent
+chances; each goal carries an assist with the side's xA/xG probability, shared out by xA and
+never to the scorer. The uniform behind a side's goal count also sits under the opposing
+players' clean-sheet thresholds, so a shut-out is one event the whole back line shares and
+can't coincide with the other side scoring. Per-player marginals are unchanged (checked
+against the old independent draws: mean score within ±0.06 for every player), so `up` and the
+planner are unaffected; what changes is any sum over players - a squad's total, or two squads
+head to head - which is what `scripts/compare_league.py` reads off the same draws. On GW10 it
+widened Josh's Arsenal-and-Everton-heavy Free Hit (90th percentile 88 → 90) and narrowed the
+rivals' chances of outscoring it by three to five points each.
 
 ### Inputs and caveats
 
